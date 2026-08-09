@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr
 
-from app.models import Action, AgentStatus, Channel, DataType, DetectionMethod, IncidentStatus
+from app.models import Action, AgentStatus, Channel, DataType, DetectionMethod, EdmFieldType, IncidentStatus
 
 
 # --- Auth ---
@@ -41,6 +41,7 @@ class PolicyBase(BaseModel):
     target_scope: dict = {}
     enabled: bool = True
     simulate_mode: bool = True
+    edm_dataset_id: str | None = None
 
 
 class PolicyCreate(PolicyBase):
@@ -57,6 +58,7 @@ class PolicyUpdate(BaseModel):
     target_scope: dict | None = None
     enabled: bool | None = None
     simulate_mode: bool | None = None
+    edm_dataset_id: str | None = None
 
 
 class PolicyOut(PolicyBase):
@@ -122,6 +124,30 @@ class IncidentOut(BaseModel):
 
 class IncidentStatusUpdate(BaseModel):
     status: IncidentStatus
+
+
+# --- EDM ---
+
+class EdmDatasetCreate(BaseModel):
+    name: str
+    field_type: EdmFieldType
+    values: list[str]
+
+
+class EdmDatasetOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    name: str
+    field_type: EdmFieldType
+    value_count: int
+    created_at: datetime
+
+
+class EdmDetectionSet(BaseModel):
+    id: str
+    field_type: EdmFieldType
+    salt: str
+    hashes: list[str]
 
 
 # --- Dashboard ---

@@ -23,11 +23,17 @@ per-channel hook mechanisms and their scope limitations.
     "ssn": "...",
     "api_key": "...",
     "private_key": "..."
-  }
+  },
+  "EdmDatasets": [
+    { "DatasetId": "...", "PolicyId": "..." }
+  ]
 }
 ```
 
-A data type with no policy id configured is simply skipped (logged, not reported).
+A data type with no policy id configured is simply skipped (logged, not reported). Each EDM
+dataset binding fetches that dataset's salt + hash set from the console once at startup and
+checks locally extracted candidates against it — see ARCHITECTURE.md for how the salted
+hashing keeps both the reference data and the scanned content private.
 
 ## Running
 

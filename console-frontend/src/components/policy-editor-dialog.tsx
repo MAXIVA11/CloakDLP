@@ -19,9 +19,18 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { ApiError, createPolicy, listIncidents, updatePolicy } from "@/lib/api";
+import { ApiError, createPolicy, listEdmDatasets, listIncidents, updatePolicy } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import type { Action, Channel, DataType, DetectionMethod, Incident, Policy, PolicyInput } from "@/lib/types";
+import type { Action, Channel, DataType, DetectionMethod, EdmDataset, Incident, Policy, PolicyInput } from "@/lib/types";
+
+const DETECTION_METHOD_BY_DATA_TYPE: Record<DataType, DetectionMethod> = {
+  credit_card: "regex",
+  ssn: "regex",
+  api_key: "regex",
+  private_key: "regex",
+  edm_dataset: "edm",
+  fingerprint_doc: "fingerprint",
+};
 
 const ALL_CHANNELS: Channel[] = ["file", "clipboard", "print", "network"];
 
@@ -45,6 +54,7 @@ function emptyForm(): PolicyInput {
     target_scope: {},
     enabled: true,
     simulate_mode: true,
+    edm_dataset_id: null,
   };
 }
 
@@ -63,6 +73,7 @@ export function PolicyEditorDialog({
   const [form, setForm] = useState<PolicyInput>(emptyForm());
   const [saving, setSaving] = useState(false);
   const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [edmDatasets, setEdmDatasets] = useState<EdmDataset[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -72,7 +83,17 @@ export function PolicyEditorDialog({
   useEffect(() => {
     if (!open || !token) return;
     listIncidents(token, {}).then(setIncidents).catch(() => setIncidents([]));
+    listEdmDatasets(token).then(setEdmDatasets).catch(() => setEdmDatasets([]));
   }, [open, token]);
+
+  function setDataType(dataType: DataType) {
+    setForm((f) => ({
+      ...f,
+      data_type: dataType,
+      detection_method: DETECTION_METHOD_BY_DATA_TYPE[dataType],
+      edm_dataset_id: dataType === "edm_dataset" ? f.edm_dataset_id : null,
+    }));
+  }
 
   const preview = useMemo(
     () => incidents.filter((i) => form.channels.includes(i.channel)).slice(0, 5),
@@ -100,6 +121,10 @@ export function PolicyEditorDialog({
     }
     if (form.channels.length === 0) {
       toast.error("Select at least one channel");
+      return;
+    }
+    if (form.data_type === "edm_dataset" && !form.edm_dataset_id) {
+      toast.error("Pick a dataset for this EDM policy");
       return;
     }
     setSaving(true);
@@ -149,10 +174,7 @@ export function PolicyEditorDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <Label>Data type</Label>
-              <Select
-                value={form.data_type}
-                onValueChange={(v) => setForm((f) => ({ ...f, data_type: v as DataType }))}
-              >
+              <Select value={form.data_type} onValueChange={(v) => setDataType(v as DataType)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -183,6 +205,33 @@ export function PolicyEditorDialog({
               </Select>
             </div>
           </div>
+
+          {form.data_type === "edm_dataset" && (
+            <div className="flex flex-col gap-1.5">
+              <Label>Dataset</Label>
+              {edmDatasets.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No EDM datasets yet — create one on the Fingerprints page first.
+                </p>
+              ) : (
+                <Select
+                  value={form.edm_dataset_id ?? undefined}
+                  onValueChange={(v) => setForm((f) => ({ ...f, edm_dataset_id: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a dataset" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {edmDatasets.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.name} ({d.value_count} values)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
 
           <div className="flex flex-col gap-1.5">
             <Label>Channels</Label>
@@ -240,7 +289,7 @@ export function PolicyEditorDialog({
               {previewCount === 0
                 ? "No previously logged incidents fall on these channels yet."
                 : `This policy's channels would have caught ${previewCount} of the incidents already logged by agents in simulate mode.`}
-              {" "}Full historical replay across raw content lands in Phase 2.
+              {" "}A fuller historical replay across raw content is a future enhancement, not implemented here.
             </p>
             {preview.length > 0 && (
               <div className="flex flex-col gap-1.5">

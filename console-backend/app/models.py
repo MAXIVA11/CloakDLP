@@ -55,6 +55,11 @@ class AgentStatus(str, enum.Enum):
     offline = "offline"
 
 
+class EdmFieldType(str, enum.Enum):
+    email = "email"
+    number = "number"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -77,6 +82,8 @@ class Policy(Base):
     target_scope: Mapped[dict] = mapped_column(JSON, default=dict)  # {"users": [...], "groups": [...], "devices": [...]}
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     simulate_mode: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Only meaningful when data_type == edm_dataset — which reference dataset this policy checks against.
+    edm_dataset_id: Mapped[str | None] = mapped_column(ForeignKey("edm_datasets.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
 
@@ -115,3 +122,17 @@ class Incident(Base):
 
     policy: Mapped["Policy"] = relationship(back_populates="incidents")
     agent: Mapped["Agent"] = relationship(back_populates="incidents")
+
+
+class EdmDataset(Base):
+    __tablename__ = "edm_datasets"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    name: Mapped[str] = mapped_column(String)
+    field_type: Mapped[EdmFieldType] = mapped_column(Enum(EdmFieldType))
+    salt: Mapped[str] = mapped_column(String)
+    # SHA-256(salt + normalized_value) for every ingested value. Raw values are never stored —
+    # they're hashed once at ingestion time and discarded.
+    hashes: Mapped[list] = mapped_column(JSON, default=list)
+    value_count: Mapped[int] = mapped_column(default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

@@ -28,8 +28,8 @@ if (string.IsNullOrWhiteSpace(config.AgentId) || string.IsNullOrWhiteSpace(confi
 
 using var client = new ConsoleApiClient(config);
 var reporter = new IncidentReporter(client, config.PolicyIdsByDataType);
-var pipeline = new DetectorPipeline();
-await client.HeartbeatAsync(policyVersion: "phase2-v1");
+var pipeline = new DetectorPipeline(await LoadEdmDetectorsAsync());
+await client.HeartbeatAsync(policyVersion: "phase3-v1");
 
 switch (args[0])
 {
@@ -100,6 +100,27 @@ async Task<int> RunMonitorAsync()
     }
 
     return 0;
+}
+
+async Task<List<IDetector>> LoadEdmDetectorsAsync()
+{
+    var detectors = new List<IDetector>();
+    foreach (var binding in config.EdmDatasets)
+    {
+        if (string.IsNullOrWhiteSpace(binding.DatasetId) || string.IsNullOrWhiteSpace(binding.PolicyId))
+            continue;
+
+        var set = await client.GetEdmDetectionSetAsync(binding.DatasetId);
+        if (set is null)
+        {
+            Console.Error.WriteLine($"[edm] failed to fetch dataset {binding.DatasetId}, skipping.");
+            continue;
+        }
+
+        detectors.Add(new EdmDetector(set.Id, binding.PolicyId, set.FieldType, set.Salt, set.Hashes));
+        Console.WriteLine($"[edm] loaded dataset '{set.Id}' ({set.Hashes.Count} values, field_type={set.FieldType}).");
+    }
+    return detectors;
 }
 
 void PrintUsage()

@@ -17,7 +17,9 @@ public sealed class IncidentReporter
 
     public async Task<bool> ReportAsync(DetectionMatch match, string channel, string sourceIdentifier)
     {
-        if (!_policyIdsByDataType.TryGetValue(match.DataType, out var policyId) || string.IsNullOrWhiteSpace(policyId))
+        var policyId = match.PolicyIdOverride;
+        if (string.IsNullOrWhiteSpace(policyId) &&
+            (!_policyIdsByDataType.TryGetValue(match.DataType, out policyId) || string.IsNullOrWhiteSpace(policyId)))
         {
             Console.WriteLine($"  [skip] no policy configured for data_type={match.DataType}");
             return false;
