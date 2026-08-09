@@ -1,23 +1,13 @@
+using CloakDlp.Agent;
+using CloakDlp.Agent.Channels;
 using CloakDlp.Agent.Config;
 using CloakDlp.Agent.ConsoleApi;
 using CloakDlp.Agent.Detection;
-using CloakDlp.Agent.Models;
 using Microsoft.Extensions.Configuration;
 
-if (args.Length < 2 || args[0] != "scan")
+if (args.Length == 0)
 {
-    Console.WriteLine("Usage: CloakDlp.Agent scan <file-path> [--enforce]");
-    Console.WriteLine("  Phase 1: file-channel regex+Luhn credit card detection.");
-    Console.WriteLine("  Default is simulate mode (log only). --enforce reports action=flag.");
-    return 1;
-}
-
-var filePath = args[1];
-var enforce = args.Contains("--enforce");
-
-if (!File.Exists(filePath))
-{
-    Console.Error.WriteLine($"File not found: {filePath}");
+    PrintUsage();
     return 1;
 }
 
@@ -36,52 +26,85 @@ if (string.IsNullOrWhiteSpace(config.AgentId) || string.IsNullOrWhiteSpace(confi
     return 1;
 }
 
-if (string.IsNullOrWhiteSpace(config.CreditCardPolicyId))
+using var client = new ConsoleApiClient(config);
+var reporter = new IncidentReporter(client, config.PolicyIdsByDataType);
+var pipeline = new DetectorPipeline();
+await client.HeartbeatAsync(policyVersion: "phase2-v1");
+
+switch (args[0])
 {
-    Console.Error.WriteLine("No CreditCardPolicyId configured in appsettings.json.");
-    return 1;
+    case "scan" when args.Length >= 2:
+        return await RunScanAsync(args[1]);
+
+    case "monitor":
+        return await RunMonitorAsync();
+
+    default:
+        PrintUsage();
+        return 1;
 }
 
-var content = await File.ReadAllTextAsync(filePath);
-var matches = CreditCardDetector.Find(content);
-
-Console.WriteLine($"Scanned {filePath}: {matches.Count} candidate match(es) passed Luhn validation.");
-
-if (matches.Count == 0)
-    return 0;
-
-using var client = new ConsoleApiClient(config);
-await client.HeartbeatAsync(policyVersion: "phase1-v1");
-
-var action = enforce ? "flag" : "log";
-var reported = 0;
-
-foreach (var match in matches)
+async Task<int> RunScanAsync(string filePath)
 {
-    var redacted = Redactor.RedactDigits(match.Digits);
-    var incident = new IncidentCreateRequest
+    if (!File.Exists(filePath))
     {
-        PolicyId = config.CreditCardPolicyId,
-        Channel = "file",
-        ActionTaken = action,
-        Confidence = 0.95,
-        RedactedSnippet = redacted,
-        RuleId = "credit-card-regex-luhn-v1",
-        SourceIdentifier = Path.GetFullPath(filePath),
+        Console.Error.WriteLine($"File not found: {filePath}");
+        return 1;
+    }
+
+    var content = await File.ReadAllTextAsync(filePath);
+    var matches = pipeline.Scan(content);
+    Console.WriteLine($"Scanned {filePath}: {matches.Count} match(es).");
+
+    var reported = 0;
+    foreach (var match in matches)
+    {
+        if (await reporter.ReportAsync(match, "file", Path.GetFullPath(filePath)))
+            reported++;
+    }
+
+    Console.WriteLine($"Reported {reported}/{matches.Count} incident(s) to {config.ConsoleUrl}.");
+    return 0;
+}
+
+async Task<int> RunMonitorAsync()
+{
+    Console.WriteLine("CloakDLP agent monitoring: clipboard, print, network (proxy on port " + config.ProxyPort + ").");
+    Console.WriteLine("Press Ctrl+C to stop.");
+
+    using var cts = new CancellationTokenSource();
+    Console.CancelKeyPress += (_, e) =>
+    {
+        e.Cancel = true;
+        cts.Cancel();
     };
 
-    var response = await client.ReportIncidentAsync(incident);
-    if (response.IsSuccessStatusCode)
+    var clipboard = new ClipboardMonitor(pipeline, reporter);
+    var print = new PrintMonitor(pipeline, reporter);
+    var proxy = new NetworkProxyMonitor(pipeline, reporter, config.ProxyPort);
+
+    var tasks = new List<Task>
     {
-        reported++;
-        Console.WriteLine($"  [{action}] match ending in {redacted[^4..]} -> incident reported");
-    }
-    else
+        Task.Run(() => clipboard.Run(cts.Token), cts.Token),
+        Task.Run(() => print.RunAsync(cts.Token), cts.Token),
+        Task.Run(() => proxy.RunAsync(cts.Token), cts.Token),
+    };
+
+    try
     {
-        var body = await response.Content.ReadAsStringAsync();
-        Console.Error.WriteLine($"  Failed to report incident: {(int)response.StatusCode} {body}");
+        await Task.WhenAll(tasks);
     }
+    catch (OperationCanceledException)
+    {
+        // expected on Ctrl+C
+    }
+
+    return 0;
 }
 
-Console.WriteLine($"Reported {reported}/{matches.Count} incident(s) to {config.ConsoleUrl}.");
-return 0;
+void PrintUsage()
+{
+    Console.WriteLine("Usage:");
+    Console.WriteLine("  CloakDlp.Agent scan <file-path>   One-shot file-channel scan.");
+    Console.WriteLine("  CloakDlp.Agent monitor            Watch clipboard, print, and network channels.");
+}
