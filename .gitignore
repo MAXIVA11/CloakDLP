@@ -1,6 +1,6 @@
 # --- .NET (agent) ---
-agent/bin/
-agent/obj/
+agent/**/bin/
+agent/**/obj/
 *.user
 *.suo
 
@@ -29,6 +29,7 @@ pnpm-debug.log*
 .env
 .env.*
 !.env.example
+!.env.local.example
 *.pem
 *.key
 *secrets*
