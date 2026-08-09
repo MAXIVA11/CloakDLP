@@ -1,0 +1,183 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-geist-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --background: #f7f8fa;
+  --foreground: #12151a;
+  --card: #ffffff;
+  --card-foreground: #12151a;
+  --popover: #ffffff;
+  --popover-foreground: #12151a;
+  --primary: #1e9c90;
+  --primary-foreground: #ffffff;
+  --secondary: #f0f2f5;
+  --secondary-foreground: #12151a;
+  --muted: #f0f2f5;
+  --muted-foreground: #5b6472;
+  --accent: #f0f2f5;
+  --accent-foreground: #12151a;
+  --destructive: #d8383f;
+  --success: #1f9a57;
+  --success-foreground: #ffffff;
+  --warning: #b8791e;
+  --warning-foreground: #ffffff;
+  --info: #3d5fc4;
+  --info-foreground: #ffffff;
+  --border: #e2e5ea;
+  --input: #e2e5ea;
+  --ring: #1e9c90;
+  --chart-1: #1e9c90;
+  --chart-2: #c98324;
+  --chart-3: #4a6fd1;
+  --chart-4: #d8383f;
+  --chart-5: #5b6472;
+  --radius: 0.5rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #12151a;
+  --sidebar-primary: #1e9c90;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f0f2f5;
+  --sidebar-accent-foreground: #12151a;
+  --sidebar-border: #e7e9ed;
+  --sidebar-ring: #1e9c90;
+}
+
+.dark {
+  --background: #0a0c0f;
+  --foreground: #e6e9ee;
+  --card: #12151a;
+  --card-foreground: #e6e9ee;
+  --popover: #12151a;
+  --popover-foreground: #e6e9ee;
+  --primary: #35b8ac;
+  --primary-foreground: #05201d;
+  --secondary: #181c22;
+  --secondary-foreground: #e6e9ee;
+  --muted: #181c22;
+  --muted-foreground: #8992a0;
+  --accent: #181c22;
+  --accent-foreground: #e6e9ee;
+  --destructive: #f0555c;
+  --success: #3fbf7f;
+  --success-foreground: #04170d;
+  --warning: #e8a23d;
+  --warning-foreground: #211602;
+  --info: #6c90e8;
+  --info-foreground: #0b1330;
+  --border: #262b33;
+  --input: #262b33;
+  --ring: #35b8ac;
+  --chart-1: #35b8ac;
+  --chart-2: #e8a23d;
+  --chart-3: #6c90e8;
+  --chart-4: #f0555c;
+  --chart-5: #8992a0;
+  --sidebar: #0d1013;
+  --sidebar-foreground: #e6e9ee;
+  --sidebar-primary: #35b8ac;
+  --sidebar-primary-foreground: #05201d;
+  --sidebar-accent: #161a20;
+  --sidebar-accent-foreground: #e6e9ee;
+  --sidebar-border: #20242b;
+  --sidebar-ring: #35b8ac;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+@layer utilities {
+  /* Redaction-bar motif: the one visual signature carried through incident
+     snippets, loading skeletons, and empty states. Solid blocks stand in for
+     masked content the console never actually receives. */
+  .redaction-mask {
+    background-image: repeating-linear-gradient(
+      90deg,
+      var(--foreground) 0px,
+      var(--foreground) 5px,
+      transparent 5px,
+      transparent 7px
+    );
+    opacity: 0.85;
+  }
+
+  .incident-row-new {
+    animation: incident-row-in 1.6s ease-out;
+  }
+
+  @keyframes incident-row-in {
+    0% {
+      background-color: color-mix(in oklab, var(--primary) 18%, transparent);
+    }
+    100% {
+      background-color: transparent;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .incident-row-new {
+    animation: none;
+  }
+}

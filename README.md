@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/logo.png" alt="CloakDLP logo" width="140">
+</p>
+
 # CloakDLP
 
 A content-aware Data Loss Prevention policy orchestrator. Inspects content (files, clipboard,
