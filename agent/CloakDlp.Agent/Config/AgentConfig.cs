@@ -5,5 +5,11 @@ public sealed class AgentConfig
     public string ConsoleUrl { get; set; } = "http://127.0.0.1:8123";
     public string AgentId { get; set; } = "";
     public string ApiKey { get; set; } = "";
-    public string CreditCardPolicyId { get; set; } = "";
+
+    // data_type -> policy_id. Populated from the console's policy list (Agents page issues the
+    // agent an API key; the operator copies each relevant policy's id in here per data type).
+    public Dictionary<string, string> PolicyIdsByDataType { get; set; } = new();
+
+    // Local port the network-egress proxy listens on. Point a browser's proxy settings at it.
+    public int ProxyPort { get; set; } = 8888;
 }

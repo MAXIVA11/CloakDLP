@@ -2,17 +2,19 @@ using System.Text.RegularExpressions;
 
 namespace CloakDlp.Agent.Detection;
 
-// Phase 1 detector: regex finds digit-sequence candidates (allowing space/dash separators),
-// then Luhn validation cuts false positives before anything is reported. Regex alone flags
-// far too many incidental 13-19 digit numbers (order IDs, phone numbers, etc.) to be useful.
-public static partial class CreditCardDetector
+// Regex finds digit-sequence candidates (allowing space/dash separators), then Luhn validation
+// cuts false positives before anything is reported. Regex alone flags far too many incidental
+// 13-19 digit numbers (order IDs, phone numbers, etc.) to be useful on its own.
+public sealed partial class CreditCardDetector : IDetector
 {
+    public string DataType => "credit_card";
+
     [GeneratedRegex(@"\b(?:\d[ -]?){13,19}\b")]
     private static partial Regex CandidateRegex();
 
-    public static IReadOnlyList<CreditCardMatch> Find(string content)
+    public IReadOnlyList<DetectionMatch> Find(string content)
     {
-        var matches = new List<CreditCardMatch>();
+        var matches = new List<DetectionMatch>();
 
         foreach (Match m in CandidateRegex().Matches(content))
         {
@@ -21,7 +23,9 @@ public static partial class CreditCardDetector
                 continue;
 
             if (PassesLuhn(digits))
-                matches.Add(new CreditCardMatch(m.Value, digits, m.Index));
+            {
+                matches.Add(new DetectionMatch(DataType, "credit-card-regex-luhn-v1", Redactor.RedactKeepLast4(digits), 0.95));
+            }
         }
 
         return matches;

@@ -17,16 +17,22 @@ from device-control tools.
 - Reports events and heartbeats to the console over an authenticated REST API.
 - Per-policy **simulate** mode (log only, no block) vs **enforce** mode.
 
-#### Hook approach (decided)
+#### Hook approach (decided, implemented in Phase 2)
 
 Usermode-only for v1, deliberately deferring kernel work:
 
-| Channel | Mechanism |
-|---|---|
-| File I/O | USN journal / `FileSystemWatcher` for change detection, direct read for content scan |
-| Clipboard | `AddClipboardFormatListener` (Win32) |
-| Print | Custom print processor DLL (registered ahead of the default processor) |
-| Network egress | Local proxy or browser native-messaging host (browser upload / email attachment level, not raw packets) |
+| Channel | Mechanism | Scope note |
+|---|---|---|
+| File I/O | Direct read for content scan (`scan` command) | On-demand in Phase 2; a filesystem watcher for continuous monitoring is a follow-up |
+| Clipboard | `AddClipboardFormatListener` (Win32), message-only window | Text only; dedupes identical consecutive content |
+| Print | `FindFirstPrinterChangeNotification` + `EnumJobs` (winspool) | Scans the job's **document title only** — reading actual spool file content needs elevated access to `%SystemRoot%\System32\spool\PRINTERS`, deliberately out of scope here |
+| Network egress | Raw-socket HTTP forward proxy (`CloakDlp.Agent monitor`, point a browser's proxy settings at it) | **HTTP only.** HTTPS interception needs a local CA installed into the OS/browser trust store to MITM TLS — a much larger, more invasive follow-up. `CONNECT` requests (how browsers tunnel HTTPS) are rejected with 501 rather than silently ignored |
+
+Note: an early network-proxy implementation used `HttpListener`, which resolves
+`Request.Url` against its own registered prefix rather than the client's requested
+absolute-URI — for a real forward-proxy request this silently loops the request back on
+itself instead of forwarding it. Rewritten on raw `TcpListener` with a minimal HTTP/1.1
+parser instead.
 
 Trade-off accepted knowingly: usermode hooks are detect/log-grade, not tamper-proof. A
 motivated user can bypass blocking. Real enforcement (deny at the source, resist tampering)
