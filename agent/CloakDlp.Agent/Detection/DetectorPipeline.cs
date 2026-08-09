@@ -4,15 +4,17 @@ public sealed class DetectorPipeline
 {
     private readonly IReadOnlyList<IDetector> _detectors;
 
-    public DetectorPipeline(IEnumerable<IDetector>? detectors = null)
+    public DetectorPipeline(IEnumerable<IDetector>? additionalDetectors = null)
     {
-        _detectors = detectors?.ToList() ?? new List<IDetector>
+        var detectors = new List<IDetector>
         {
             new CreditCardDetector(),
             new SsnDetector(),
             new ApiKeyDetector(),
             new PrivateKeyDetector(),
         };
+        if (additionalDetectors is not null) detectors.AddRange(additionalDetectors);
+        _detectors = detectors;
     }
 
     public IReadOnlyList<DetectionMatch> Scan(string content)

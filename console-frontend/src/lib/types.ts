@@ -22,6 +22,7 @@ export interface Policy {
   target_scope: Record<string, unknown>;
   enabled: boolean;
   simulate_mode: boolean;
+  edm_dataset_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -65,5 +66,15 @@ export interface DashboardStats {
 export interface CurrentUser {
   id: string;
   email: string;
+  created_at: string;
+}
+
+export type EdmFieldType = "email" | "number";
+
+export interface EdmDataset {
+  id: string;
+  name: string;
+  field_type: EdmFieldType;
+  value_count: number;
   created_at: string;
 }

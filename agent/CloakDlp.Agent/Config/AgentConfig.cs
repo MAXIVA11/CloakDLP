@@ -12,4 +12,13 @@ public sealed class AgentConfig
 
     // Local port the network-egress proxy listens on. Point a browser's proxy settings at it.
     public int ProxyPort { get; set; } = 8888;
+
+    // EDM datasets to check against, each tied to the policy that governs matches against it.
+    public List<EdmBinding> EdmDatasets { get; set; } = new();
+}
+
+public sealed class EdmBinding
+{
+    public string DatasetId { get; set; } = "";
+    public string PolicyId { get; set; } = "";
 }

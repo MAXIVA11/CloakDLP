@@ -2,6 +2,8 @@ import type {
   Agent,
   CurrentUser,
   DashboardStats,
+  EdmDataset,
+  EdmFieldType,
   Incident,
   IncidentStatus,
   Policy,
@@ -139,6 +141,31 @@ export async function registerAgent(
     body: JSON.stringify({ hostname }),
   });
   return handle(res);
+}
+
+export async function listEdmDatasets(token: string): Promise<EdmDataset[]> {
+  const res = await fetch(`${API_URL}/api/edm/datasets`, { headers: authHeaders(token) });
+  return handle<EdmDataset[]>(res);
+}
+
+export async function createEdmDataset(
+  token: string,
+  input: { name: string; field_type: EdmFieldType; values: string[] },
+): Promise<EdmDataset> {
+  const res = await fetch(`${API_URL}/api/edm/datasets`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders(token) },
+    body: JSON.stringify(input),
+  });
+  return handle<EdmDataset>(res);
+}
+
+export async function deleteEdmDataset(token: string, id: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/edm/datasets/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  return handle<void>(res);
 }
 
 export async function getDashboardStats(token: string): Promise<DashboardStats> {

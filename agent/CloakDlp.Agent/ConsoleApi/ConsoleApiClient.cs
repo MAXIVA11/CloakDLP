@@ -26,5 +26,12 @@ public sealed class ConsoleApiClient : IDisposable
         return await _http.PostAsJsonAsync("/api/incidents", incident, ct);
     }
 
+    public async Task<EdmDetectionSetResponse?> GetEdmDetectionSetAsync(string datasetId, CancellationToken ct = default)
+    {
+        var response = await _http.GetAsync($"/api/edm/datasets/{datasetId}/detection-set", ct);
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<EdmDetectionSetResponse>(cancellationToken: ct);
+    }
+
     public void Dispose() => _http.Dispose();
 }

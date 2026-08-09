@@ -71,15 +71,28 @@ engine is proven and we know what specifically needs hardening.
 4. Cross-channel correlation: same content across clipboard → rename → upload within a short
    window surfaces as one correlated incident, not three.
 
+### EDM implementation notes (Phase 3)
+
+Single-field datasets only (a flat list of values — emails or numbers), not the full
+multi-column "customer record" EDM some commercial tools support. The console hashes each
+normalized value with a per-dataset random salt (`SHA-256(salt + normalized_value)`) at
+ingestion and discards the raw values immediately; only the salt and hash set are ever
+persisted. Agents pull the salt + hash set for datasets tied to their configured policies,
+extract same-shaped candidate tokens locally (regex for emails / digit runs for numbers),
+normalize and hash them the same way, and check set membership — so a match is detected and
+reported without either the console or the wire ever seeing the raw candidate value or the raw
+reference data at the same time.
+
 ## Phasing
 
-- **Phase 1 — Pipe MVP**: console skeleton (auth, policy CRUD, empty-state dashboards) +
-  minimal agent doing regex+Luhn credit card detection on a test file, end-to-end through the
+- **Phase 1 — Pipe MVP** *(done)*: console skeleton (auth, policy CRUD, empty-state dashboards)
+  + minimal agent doing regex+Luhn credit card detection on a test file, end-to-end through the
   API into the incident feed. Log-only, single channel, single pattern. Prove the pipe.
-- **Phase 2 — Channel & pattern coverage**: clipboard, print, network-egress hooks. SSN +
-  secrets detection. Policy engine grows to per-channel/per-scope rules and simulate-vs-enforce.
-- **Phase 3 — Exact Data Match**: reference dataset ingestion, local salted hashing, EDM
-  detection.
+- **Phase 2 — Channel & pattern coverage** *(done)*: clipboard, print, network-egress hooks.
+  SSN + secrets detection. Policy engine grows to per-channel/per-scope rules and
+  simulate-vs-enforce.
+- **Phase 3 — Exact Data Match** *(done)*: reference dataset ingestion, local salted hashing,
+  EDM detection.
 - **Phase 4 — Document fingerprinting**: fuzzy hashing (ssdeep/TLSH).
 - **Phase 5 — Cross-channel correlation**: linked-event incidents.
 - **Phase 6 — Enforcement hardening (deferred, scope TBD)**: kernel-level components
