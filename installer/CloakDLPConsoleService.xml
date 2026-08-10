@@ -1,0 +1,16 @@
+<service>
+  <id>CloakDLPConsole</id>
+  <name>CloakDLP Console</name>
+  <description>CloakDLP policy orchestrator API and web console (http://127.0.0.1:8123).</description>
+  <executable>%BASE%\CloakDLP-Console.exe</executable>
+  <logpath>%ProgramData%\CloakDLP\logs</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>5</keepFiles>
+  </log>
+  <onfailure action="restart" delay="10 sec"/>
+  <onfailure action="restart" delay="30 sec"/>
+  <resetfailure>1 hour</resetfailure>
+  <startmode>Automatic</startmode>
+  <stoptimeout>15 sec</stoptimeout>
+</service>

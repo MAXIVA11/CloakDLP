@@ -1,5 +1,9 @@
+import sys
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import Base, engine
@@ -30,3 +34,13 @@ app.include_router(ws.router)
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
+
+
+# Serves the console frontend's static export (console-frontend/out/, copied to static/ by the
+# packaging script) so a single packaged process serves both the API and the UI — no Node.js
+# runtime needed on the install target. Not present in normal backend-only dev; mount is a no-op
+# then. Registered last so /api/* and /ws/* are always matched first.
+_base_dir = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent.parent
+_static_dir = _base_dir / "static"
+if _static_dir.is_dir():
+    app.mount("/", StaticFiles(directory=_static_dir, html=True), name="static")

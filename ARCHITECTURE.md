@@ -42,7 +42,7 @@ engine is proven and we know what specifically needs hardening.
 
 ### Console backend
 
-- **Stack**: Python + FastAPI, Postgres for policies/incidents/agent state.
+- **Stack**: Python + FastAPI, SQLite by default (Postgres via `DATABASE_URL` for prod).
 - Policy CRUD: rules by data type, detection method, channel, action (block/flag/log), and
   target scope (user/group/device).
 - Incident ingestion API (agent → console), auth'd.
@@ -117,13 +117,33 @@ only reports on a match — raw document bytes never cross the wire in either di
   (minifilter for file block, WFP callout for network block) if usermode enforcement proves
   insufficient or too easily bypassed.
 
+## Packaging: single-MSI installer
+
+`installer/` builds one MSI (WiX Toolset v5) that installs both components as Windows
+services and shows up in Add/Remove Programs — see [installer/README.md](installer/README.md)
+for the full breakdown. The two packaging decisions worth knowing about:
+
+- **The console frontend is a Next.js static export** (`output: "export"`), served directly by
+  the backend exe via FastAPI `StaticFiles` on the same port as the API. This means the
+  installed system needs **no Node.js runtime at all** — only the two self-contained exes
+  (backend via PyInstaller, agent via `dotnet publish --self-contained`).
+- **The backend service is wrapped with [WinSW](https://github.com/winsw/winsw)** rather than
+  implemented as a native Python Windows Service. A plain console exe (even one built with
+  PyInstaller) doesn't speak the Service Control Manager protocol on its own; WinSW is a
+  purpose-built, widely-used (Jenkins, Elasticsearch, etc.) wrapper for exactly this. The agent,
+  by contrast, *is* a native Windows Service (`Microsoft.Extensions.Hosting.WindowsServices`)
+  since that's straightforward in .NET — both services are still registered, started, stopped,
+  and removed the same way, through the MSI's own `ServiceInstall`/`ServiceControl` tables, no
+  custom install scripts either way.
+
 ## Repo layout
 
 ```
 CloakDLP/
   agent/              C#/.NET usermode agent
-  console-backend/     FastAPI + Postgres
+  console-backend/     FastAPI, SQLite/Postgres
   console-frontend/    Next.js + Tailwind + shadcn/ui
+  installer/           WiX MSI: installs both as Windows services
   docs/                design notes, detection rule specs, etc.
   ARCHITECTURE.md
 ```
