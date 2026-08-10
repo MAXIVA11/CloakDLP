@@ -42,6 +42,7 @@ class PolicyBase(BaseModel):
     enabled: bool = True
     simulate_mode: bool = True
     edm_dataset_id: str | None = None
+    fingerprint_dataset_id: str | None = None
 
 
 class PolicyCreate(PolicyBase):
@@ -59,6 +60,7 @@ class PolicyUpdate(BaseModel):
     enabled: bool | None = None
     simulate_mode: bool | None = None
     edm_dataset_id: str | None = None
+    fingerprint_dataset_id: str | None = None
 
 
 class PolicyOut(PolicyBase):
@@ -148,6 +150,22 @@ class EdmDetectionSet(BaseModel):
     field_type: EdmFieldType
     salt: str
     hashes: list[str]
+
+
+# --- Fingerprints ---
+
+class FingerprintDatasetOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    name: str
+    source_filename: str
+    created_at: datetime
+
+
+class FingerprintDetectionSet(BaseModel):
+    id: str
+    name: str
+    ctph_hash: str
 
 
 # --- Dashboard ---

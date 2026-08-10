@@ -23,17 +23,19 @@ public sealed class NetworkProxyMonitor
     private readonly DetectorPipeline _pipeline;
     private readonly IncidentReporter _reporter;
     private readonly int _port;
+    private readonly FingerprintMatcher? _fingerprintMatcher;
 
     private static readonly string[] ScannableContentTypes =
     {
         "text/", "application/json", "application/x-www-form-urlencoded", "multipart/form-data",
     };
 
-    public NetworkProxyMonitor(DetectorPipeline pipeline, IncidentReporter reporter, int port)
+    public NetworkProxyMonitor(DetectorPipeline pipeline, IncidentReporter reporter, int port, FingerprintMatcher? fingerprintMatcher = null)
     {
         _pipeline = pipeline;
         _reporter = reporter;
         _port = port;
+        _fingerprintMatcher = fingerprintMatcher;
     }
 
     public async Task RunAsync(CancellationToken ct)
@@ -96,14 +98,21 @@ public sealed class NetworkProxyMonitor
                 return;
             }
 
-            if (request.Body.Length > 0 && IsScannable(request.Headers.GetValueOrDefault("content-type")))
+            if (request.Body.Length > 0)
             {
-                var text = Encoding.UTF8.GetString(request.Body);
-                var matches = _pipeline.Scan(text);
                 var sourceIdentifier = targetUri.GetLeftPart(UriPartial.Path);
-                foreach (var match in matches)
+
+                if (IsScannable(request.Headers.GetValueOrDefault("content-type")))
                 {
-                    await _reporter.ReportAsync(match, "network", sourceIdentifier);
+                    var text = Encoding.UTF8.GetString(request.Body);
+                    foreach (var match in _pipeline.Scan(text))
+                        await _reporter.ReportAsync(match, "network", sourceIdentifier);
+                }
+
+                if (_fingerprintMatcher is not null)
+                {
+                    foreach (var match in _fingerprintMatcher.Match(request.Body))
+                        await _reporter.ReportAsync(match, "network", sourceIdentifier);
                 }
             }
 

@@ -19,9 +19,19 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { ApiError, createPolicy, listEdmDatasets, listIncidents, updatePolicy } from "@/lib/api";
+import { ApiError, createPolicy, listEdmDatasets, listFingerprints, listIncidents, updatePolicy } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import type { Action, Channel, DataType, DetectionMethod, EdmDataset, Incident, Policy, PolicyInput } from "@/lib/types";
+import type {
+  Action,
+  Channel,
+  DataType,
+  DetectionMethod,
+  EdmDataset,
+  FingerprintDataset,
+  Incident,
+  Policy,
+  PolicyInput,
+} from "@/lib/types";
 
 const DETECTION_METHOD_BY_DATA_TYPE: Record<DataType, DetectionMethod> = {
   credit_card: "regex",
@@ -55,6 +65,7 @@ function emptyForm(): PolicyInput {
     enabled: true,
     simulate_mode: true,
     edm_dataset_id: null,
+    fingerprint_dataset_id: null,
   };
 }
 
@@ -74,6 +85,7 @@ export function PolicyEditorDialog({
   const [saving, setSaving] = useState(false);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [edmDatasets, setEdmDatasets] = useState<EdmDataset[]>([]);
+  const [fingerprints, setFingerprints] = useState<FingerprintDataset[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -84,6 +96,7 @@ export function PolicyEditorDialog({
     if (!open || !token) return;
     listIncidents(token, {}).then(setIncidents).catch(() => setIncidents([]));
     listEdmDatasets(token).then(setEdmDatasets).catch(() => setEdmDatasets([]));
+    listFingerprints(token).then(setFingerprints).catch(() => setFingerprints([]));
   }, [open, token]);
 
   function setDataType(dataType: DataType) {
@@ -92,6 +105,7 @@ export function PolicyEditorDialog({
       data_type: dataType,
       detection_method: DETECTION_METHOD_BY_DATA_TYPE[dataType],
       edm_dataset_id: dataType === "edm_dataset" ? f.edm_dataset_id : null,
+      fingerprint_dataset_id: dataType === "fingerprint_doc" ? f.fingerprint_dataset_id : null,
     }));
   }
 
@@ -125,6 +139,10 @@ export function PolicyEditorDialog({
     }
     if (form.data_type === "edm_dataset" && !form.edm_dataset_id) {
       toast.error("Pick a dataset for this EDM policy");
+      return;
+    }
+    if (form.data_type === "fingerprint_doc" && !form.fingerprint_dataset_id) {
+      toast.error("Pick a document for this fingerprint policy");
       return;
     }
     setSaving(true);
@@ -225,6 +243,33 @@ export function PolicyEditorDialog({
                     {edmDatasets.map((d) => (
                       <SelectItem key={d.id} value={d.id}>
                         {d.name} ({d.value_count} values)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
+
+          {form.data_type === "fingerprint_doc" && (
+            <div className="flex flex-col gap-1.5">
+              <Label>Document</Label>
+              {fingerprints.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No document fingerprints yet — create one on the Fingerprints page first.
+                </p>
+              ) : (
+                <Select
+                  value={form.fingerprint_dataset_id ?? undefined}
+                  onValueChange={(v) => setForm((f) => ({ ...f, fingerprint_dataset_id: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a document" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {fingerprints.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

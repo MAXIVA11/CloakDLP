@@ -26,7 +26,11 @@ per-channel hook mechanisms and their scope limitations.
   },
   "EdmDatasets": [
     { "DatasetId": "...", "PolicyId": "..." }
-  ]
+  ],
+  "FingerprintDatasets": [
+    { "DatasetId": "...", "PolicyId": "..." }
+  ],
+  "FingerprintThreshold": 40
 }
 ```
 
@@ -34,6 +38,14 @@ A data type with no policy id configured is simply skipped (logged, not reported
 dataset binding fetches that dataset's salt + hash set from the console once at startup and
 checks locally extracted candidates against it — see ARCHITECTURE.md for how the salted
 hashing keeps both the reference data and the scanned content private.
+
+Each fingerprint dataset binding fetches that document's CTPH fuzzy hash once at startup;
+matches (file scans and network-proxy request bodies) are reported when similarity to a
+reference document is at or above `FingerprintThreshold` (0-100).
+
+```bash
+dotnet run -- hash <file-path>   # print a file's CTPH fingerprint without touching the console
+```
 
 ## Running
 

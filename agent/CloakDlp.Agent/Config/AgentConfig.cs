@@ -14,10 +14,16 @@ public sealed class AgentConfig
     public int ProxyPort { get; set; } = 8888;
 
     // EDM datasets to check against, each tied to the policy that governs matches against it.
-    public List<EdmBinding> EdmDatasets { get; set; } = new();
+    public List<DatasetBinding> EdmDatasets { get; set; } = new();
+
+    // Document fingerprints to check against, each tied to the policy that governs matches.
+    public List<DatasetBinding> FingerprintDatasets { get; set; } = new();
+
+    // Minimum CTPH similarity (0-100) to report a fingerprint match.
+    public int FingerprintThreshold { get; set; } = 40;
 }
 
-public sealed class EdmBinding
+public sealed class DatasetBinding
 {
     public string DatasetId { get; set; } = "";
     public string PolicyId { get; set; } = "";
