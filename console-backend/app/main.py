@@ -8,20 +8,29 @@ from fastapi.staticfiles import StaticFiles
 from app.bootstrap import ensure_default_policy
 from app.config import settings
 from app.database import Base, engine
+from app.migrations import run_migrations
 from app.routers import agents, auth, dashboard, edm, fingerprints, incidents, policies, ws
 
 Base.metadata.create_all(bind=engine)
+run_migrations()
 ensure_default_policy()
 
 app = FastAPI(title="CloakDLP Console API", version="0.1.0")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Only needed for local dev, where the frontend (npm run dev, port 3000) and backend run as
+# separate origins. The packaged app serves the frontend from the same origin as the API, so it
+# needs no CORS at all — and shipping this permissively in the packaged build was a real bug:
+# any other local process bound to port 3000 could read authenticated responses (including
+# local-login's token) via a credentialed cross-origin fetch. No CORS middleware means the
+# browser's default same-origin policy applies, which is exactly what the packaged app wants.
+if not getattr(sys, "frozen", False):
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 app.include_router(auth.router)
 app.include_router(policies.router)
