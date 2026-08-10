@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000"]
     host: str = "127.0.0.1"
     port: int = 8123
+    # Set once the browser extension is actually published (see browser-extension/README.md) —
+    # left blank until then so the console doesn't point people at a store listing that isn't
+    # live yet. The install prompt only renders when this is non-empty.
+    extension_store_url: str = ""
 
     def model_post_init(self, __context) -> None:
         if not self.jwt_secret:

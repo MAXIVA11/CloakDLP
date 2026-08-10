@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr
 
-from app.models import Action, AgentStatus, Channel, DataType, DetectionMethod, EdmFieldType, IncidentStatus
+from app.models import Action, AgentKind, AgentStatus, Channel, DataType, DetectionMethod, EdmFieldType, IncidentStatus
 
 
 # --- Auth ---
@@ -74,12 +74,14 @@ class PolicyOut(PolicyBase):
 
 class AgentRegister(BaseModel):
     hostname: str
+    kind: AgentKind = AgentKind.native
 
 
 class AgentRegisterOut(BaseModel):
     id: str
     hostname: str
     api_key: str  # returned once, plaintext, at registration time only
+    default_credit_card_policy_id: str | None = None
 
 
 class AgentOut(BaseModel):
@@ -87,12 +89,18 @@ class AgentOut(BaseModel):
     id: str
     hostname: str
     status: AgentStatus
+    kind: AgentKind
     policy_version: str
     last_heartbeat: datetime | None
 
 
 class AgentHeartbeat(BaseModel):
     policy_version: str = ""
+
+
+class ExtensionStatus(BaseModel):
+    installed: bool
+    store_url: str
 
 
 # --- Incident ---

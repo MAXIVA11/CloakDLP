@@ -31,7 +31,7 @@ console-backend/static/
 console-backend/build/
 console-backend/dist/
 console-backend/*.spec
-agent/CloakDlp.Agent/publish/
+agent/**/publish/
 installer/out/
 installer/obj/
 installer/bin/

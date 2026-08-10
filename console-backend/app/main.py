@@ -5,11 +5,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.bootstrap import ensure_default_policy
 from app.config import settings
 from app.database import Base, engine
 from app.routers import agents, auth, dashboard, edm, fingerprints, incidents, policies, ws
 
 Base.metadata.create_all(bind=engine)
+ensure_default_policy()
 
 app = FastAPI(title="CloakDLP Console API", version="0.1.0")
 

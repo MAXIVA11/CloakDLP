@@ -1,7 +1,7 @@
 "use client";
 
 import { formatDistanceToNow } from "date-fns";
-import { Plus, Server } from "lucide-react";
+import { Monitor, Plus, Puzzle, Server } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -83,6 +83,7 @@ export default function AgentsPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Hostname</TableHead>
+              <TableHead className="w-16">Kind</TableHead>
               <TableHead className="w-28">Status</TableHead>
               <TableHead className="w-32">Policy version</TableHead>
               <TableHead className="w-44">Last heartbeat</TableHead>
@@ -92,7 +93,7 @@ export default function AgentsPage() {
             {agents === null &&
               Array.from({ length: 3 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 4 }).map((__, j) => (
+                  {Array.from({ length: 5 }).map((__, j) => (
                     <TableCell key={j}>
                       <Skeleton className="h-4 w-full" />
                     </TableCell>
@@ -102,7 +103,7 @@ export default function AgentsPage() {
 
             {isEmpty && (
               <TableRow>
-                <TableCell colSpan={4} className="h-48 text-center">
+                <TableCell colSpan={5} className="h-48 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <Server className="size-6" />
                     <p className="text-sm">No agents registered yet.</p>
@@ -115,6 +116,13 @@ export default function AgentsPage() {
             {agents?.map((agent) => (
               <TableRow key={agent.id}>
                 <TableCell className="font-mono text-sm">{agent.hostname}</TableCell>
+                <TableCell>
+                  {agent.kind === "browser_extension" ? (
+                    <Puzzle className="size-4 text-muted-foreground" aria-label="Browser extension" />
+                  ) : (
+                    <Monitor className="size-4 text-muted-foreground" aria-label="Native agent" />
+                  )}
+                </TableCell>
                 <TableCell>
                   <AgentStatusBadge status={agent.status} />
                 </TableCell>

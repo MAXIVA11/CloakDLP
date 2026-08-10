@@ -4,6 +4,7 @@ import type {
   DashboardStats,
   EdmDataset,
   EdmFieldType,
+  ExtensionStatus,
   FingerprintDataset,
   Incident,
   IncidentStatus,
@@ -47,6 +48,12 @@ export async function login(email: string, password: string): Promise<string> {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: form.toString(),
   });
+  const data = await handle<{ access_token: string }>(res);
+  return data.access_token;
+}
+
+export async function localLogin(): Promise<string> {
+  const res = await fetch(`${API_URL}/api/auth/local-login`, { method: "POST" });
   const data = await handle<{ access_token: string }>(res);
   return data.access_token;
 }
@@ -142,6 +149,11 @@ export async function registerAgent(
     body: JSON.stringify({ hostname }),
   });
   return handle(res);
+}
+
+export async function getExtensionStatus(token: string): Promise<ExtensionStatus> {
+  const res = await fetch(`${API_URL}/api/agents/extension-status`, { headers: authHeaders(token) });
+  return handle<ExtensionStatus>(res);
 }
 
 export async function listEdmDatasets(token: string): Promise<EdmDataset[]> {

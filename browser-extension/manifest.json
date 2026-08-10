@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "CloakDLP Card Entry Monitor",
+  "version": "1.0.0",
+  "description": "Flags every time a credit card number is entered on a web page and logs it to your local CloakDLP console. The card number itself never leaves your browser — only a redacted snippet and the page's domain are reported.",
+  "permissions": ["storage"],
+  "host_permissions": ["<all_urls>", "http://127.0.0.1:8123/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

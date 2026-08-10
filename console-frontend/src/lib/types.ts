@@ -45,12 +45,20 @@ export interface Incident {
   extra: Record<string, unknown>;
 }
 
+export type AgentKind = "native" | "browser_extension";
+
 export interface Agent {
   id: string;
   hostname: string;
   status: AgentStatus;
+  kind: AgentKind;
   policy_version: string;
   last_heartbeat: string | null;
+}
+
+export interface ExtensionStatus {
+  installed: boolean;
+  store_url: string;
 }
 
 export interface DashboardStats {

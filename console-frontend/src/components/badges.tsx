@@ -1,8 +1,10 @@
-import { Ban, Eye, FileText } from "lucide-react";
+import { Ban, Eye, FileText, ShieldQuestion } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { Action, AgentStatus, IncidentStatus } from "@/lib/types";
+
+export type RiskLevel = "low" | "medium" | "high" | "unknown";
 
 const actionConfig: Record<Action, { label: string; className: string; icon: React.ElementType }> = {
   block: {
@@ -41,6 +43,30 @@ const statusConfig: Record<IncidentStatus, { label: string; className: string }>
 
 export function IncidentStatusBadge({ status }: { status: IncidentStatus }) {
   const cfg = statusConfig[status];
+  return (
+    <Badge variant="outline" className={cn("border-transparent", cfg.className)}>
+      {cfg.label}
+    </Badge>
+  );
+}
+
+const riskConfig: Record<RiskLevel, { label: string; className: string }> = {
+  low: { label: "Low risk", className: "bg-success/10 text-success dark:bg-success/20" },
+  medium: { label: "Medium risk", className: "bg-warning/10 text-warning dark:bg-warning/20" },
+  high: { label: "High risk", className: "bg-destructive/10 text-destructive dark:bg-destructive/20" },
+  unknown: { label: "Unscored", className: "bg-muted text-muted-foreground" },
+};
+
+export function RiskBadge({ level }: { level: RiskLevel | null }) {
+  if (level === null) {
+    return (
+      <Badge variant="outline" className="gap-1 border-transparent bg-muted text-muted-foreground">
+        <ShieldQuestion className="size-3" />
+        Scoring…
+      </Badge>
+    );
+  }
+  const cfg = riskConfig[level];
   return (
     <Badge variant="outline" className={cn("border-transparent", cfg.className)}>
       {cfg.label}

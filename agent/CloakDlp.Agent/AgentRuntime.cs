@@ -1,3 +1,5 @@
+using System.Net.Http.Json;
+using System.Text.Json.Serialization;
 using CloakDlp.Agent.Channels;
 using CloakDlp.Agent.Config;
 using CloakDlp.Agent.ConsoleApi;
@@ -10,7 +12,7 @@ namespace CloakDlp.Agent;
 // Windows Service worker — the two have identical behavior, just different hosts/lifecycles.
 public static class AgentRuntime
 {
-    public static AgentConfig LoadConfig()
+    public static async Task<AgentConfig> LoadConfigAsync()
     {
         var configuration = new ConfigurationBuilder()
             .SetBasePath(AppContext.BaseDirectory)
@@ -20,14 +22,61 @@ public static class AgentRuntime
 
         var config = new AgentConfig();
         configuration.Bind(config);
+
+        if (string.IsNullOrWhiteSpace(config.AgentId) || string.IsNullOrWhiteSpace(config.ApiKey))
+        {
+            var stored = AgentCredentialStore.Load();
+            if (stored is { } creds)
+            {
+                config.AgentId = creds.AgentId;
+                config.ApiKey = creds.ApiKey;
+            }
+            else
+            {
+                var registered = await SelfRegisterAsync(config.ConsoleUrl);
+                if (registered is { } issued)
+                {
+                    config.AgentId = issued.AgentId;
+                    config.ApiKey = issued.ApiKey;
+                    AgentCredentialStore.Save(issued.AgentId, issued.ApiKey);
+                    Console.WriteLine($"[pairing] self-registered as '{Environment.MachineName}' with the console at {config.ConsoleUrl}.");
+                }
+            }
+        }
+
         return config;
+    }
+
+    private static async Task<(string AgentId, string ApiKey)?> SelfRegisterAsync(string consoleUrl)
+    {
+        try
+        {
+            using var http = new HttpClient { BaseAddress = new Uri(consoleUrl), Timeout = TimeSpan.FromSeconds(10) };
+            var response = await http.PostAsJsonAsync("/api/agents/self-register", new { hostname = Environment.MachineName });
+            if (!response.IsSuccessStatusCode) return null;
+
+            var result = await response.Content.ReadFromJsonAsync<SelfRegisterResponse>();
+            return result is null ? null : (result.Id, result.ApiKey);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[pairing] self-registration failed (console may not be up yet): {ex.Message}");
+            return null;
+        }
+    }
+
+    private sealed class SelfRegisterResponse
+    {
+        public string Id { get; set; } = "";
+        [JsonPropertyName("api_key")]
+        public string ApiKey { get; set; } = "";
     }
 
     public static async Task RunChannelsAsync(AgentConfig config, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(config.AgentId) || string.IsNullOrWhiteSpace(config.ApiKey))
         {
-            Console.Error.WriteLine("Agent is not registered. Set AgentId/ApiKey in appsettings.json (obtained via console agent registration).");
+            Console.Error.WriteLine("Agent is not paired with a console yet (self-registration hasn't succeeded — is the console running?).");
             return;
         }
 

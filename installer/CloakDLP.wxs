@@ -31,12 +31,16 @@
           <Directory Id="STATICDIR" Name="static" />
         </Directory>
         <Directory Id="AGENTDIR" Name="agent" />
+        <Directory Id="TRAYDIR" Name="tray" />
+        <Directory Id="EXTENSIONDIR" Name="extension" />
       </Directory>
     </StandardDirectory>
 
     <StandardDirectory Id="ProgramMenuFolder">
       <Directory Id="ShortcutFolder" Name="CloakDLP" />
     </StandardDirectory>
+
+    <StandardDirectory Id="StartupFolder" />
 
     <!-- Console: backend exe + WinSW-wrapped service registration -->
     <ComponentGroup Id="ConsoleFiles" Directory="CONSOLEDIR">
@@ -102,6 +106,52 @@
       </Component>
     </ComponentGroup>
 
+    <!-- Tray notifier: shows a notification when the agent/extension detect a card entry.
+         Starts automatically at logon via a shortcut in the current user's Startup folder —
+         the same standard, user-visible mechanism Dropbox/Discord/Steam etc. use; it shows up
+         in Task Manager's Startup Apps tab and Settings > Apps > Startup like any other, and
+         can be disabled there the same way.
+
+         The shortcut is its own component with an HKCU keypath (not the exe file) even though
+         that means it's in a different component than its Target file — Windows Installer's
+         own validation (ICE43/57) requires a per-user keypath for any component containing a
+         per-user-directory shortcut, which takes priority over ICE69's (non-fatal, warning
+         only) preference that a shortcut share a component with its target. -->
+    <ComponentGroup Id="TrayFiles" Directory="TRAYDIR">
+      <Component Id="TrayConfig" Guid="*">
+        <File Id="TrayConfigFile" Source="staging\tray\appsettings.json" KeyPath="yes" />
+      </Component>
+      <Component Id="TrayIcon" Guid="*">
+        <File Id="TrayIconFile" Source="staging\tray\tray.ico" KeyPath="yes" />
+      </Component>
+      <Component Id="TrayExe" Guid="*">
+        <File Id="TrayExeFile" Source="staging\tray\CloakDlp.Tray.exe" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <Component Id="TrayStartupShortcut" Directory="StartupFolder" Guid="4B7D8E1A-2C3F-4A9B-8E5D-1F6A9C2B7D4E">
+      <Shortcut
+        Id="TrayStartupShortcutFile"
+        Name="CloakDLP Notifier"
+        Target="[#TrayExeFile]"
+        WorkingDirectory="TRAYDIR" />
+      <RegistryValue
+        Root="HKCU"
+        Key="Software\CloakDLP"
+        Name="TrayStartupInstalled"
+        Type="integer"
+        Value="1"
+        KeyPath="yes" />
+    </Component>
+
+    <!-- Browser extension source, zipped for reference/store submission — not installed or
+         registered with any browser. See browser-extension/README.md. -->
+    <ComponentGroup Id="ExtensionFiles" Directory="EXTENSIONDIR">
+      <Component Id="ExtensionZip" Guid="*">
+        <File Id="ExtensionZipFile" Source="staging\CloakDLP-browser-extension.zip" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
     <ComponentGroup Id="Shortcuts" Directory="ShortcutFolder">
       <Component Id="OpenConsoleShortcut" Guid="18AA278C-2211-4C3D-8D98-59DFFFB3E23D">
         <File Id="OpenConsoleShortcutFile" Source="staging\CloakDLP Console.url" />
@@ -120,6 +170,9 @@
       <ComponentGroupRef Id="ConsoleFiles" />
       <ComponentGroupRef Id="StaticFiles" />
       <ComponentGroupRef Id="AgentFiles" />
+      <ComponentGroupRef Id="TrayFiles" />
+      <ComponentRef Id="TrayStartupShortcut" />
+      <ComponentGroupRef Id="ExtensionFiles" />
       <ComponentGroupRef Id="Shortcuts" />
     </Feature>
 
