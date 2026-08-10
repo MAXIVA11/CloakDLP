@@ -4,6 +4,14 @@ Content-aware Data Loss Prevention policy orchestrator. Enforces policy based on
 **is** (via content inspection), not what device it's moving through — the opposite framing
 from device-control tools.
 
+The flagship use case is personal, not enterprise: catch every time a credit card number gets
+entered somewhere, on any channel, and show a running log with a risk score for where it went —
+the "wait, when did I give my card to *that* site" problem, solved before the bank statement
+surprise instead of after. See [Personal card-entry tracking](#personal-card-entry-tracking)
+below. The general policy/detection engine underneath (EDM, fingerprinting, arbitrary channels
+and data types) still works exactly as described in the rest of this doc — the pivot changed
+what's on by default and how zero-effort setup is, not the underlying capability.
+
 ## Components
 
 ### Agent (endpoint-side, Windows-first)
@@ -101,6 +109,97 @@ Comparison happens agent-side, same posture as EDM: the agent fetches the refere
 non-reversible fuzzy digest, safe to distribute) once at startup, hashes local content, and
 only reports on a match — raw document bytes never cross the wire in either direction.
 
+## Personal card-entry tracking
+
+The pivot from "generic enterprise DLP console" to "track my own card entries" changed three
+things: how setup works (must be zero-effort — download, run, open console, done), where
+detection happens (a browser extension, not just the desktop agent), and what a match means to
+the person reading it (a domain + risk score, not a compliance incident).
+
+### Zero-config pairing
+
+Nothing to register or type in by hand. The trust boundary is "this request came from
+127.0.0.1" — reasonable for a genuinely single-user local tool, since the console only binds to
+loopback by default anyway:
+
+- **Console login**: `POST /api/auth/local-login` (loopback-only, see `app/deps.py`'s
+  `require_loopback`) gets or creates a single local admin account and returns a session token
+  with no password involved. The frontend tries this automatically before ever showing a login
+  form (`lib/auth-context.tsx`) — opening the console from the Start Menu shortcut just... logs
+  you in.
+- **Agent pairing**: `POST /api/agents/self-register` (also loopback-only) is idempotent by
+  hostname — the .NET agent, and the browser extension, both call it on first run and persist
+  whatever credentials come back (`%ProgramData%\CloakDLP\agent_credentials.json` for the
+  agent; `chrome.storage.local` for the extension).
+- **Default policy**: the console auto-creates a "Credit Card Entry" policy (`app/bootstrap.py`)
+  on first startup if none exists, flag-only, `simulate_mode=true` — never blocks, since this is
+  an awareness tool, not an enforcement one, and blocking someone's own checkout would be
+  actively harmful.
+- **Pairing responses include the right policy id** (`default_credit_card_policy_id` on both
+  register endpoints) so a fresh agent or extension install doesn't need a second round-trip or
+  any console-side lookup to know what to report against.
+
+### Domain risk scoring
+
+When a network-channel incident's `source_identifier` is a URL, a background task (`app/
+routers/incidents.py`, offloaded via `asyncio.to_thread` so a slow WHOIS lookup never blocks
+incident creation or the request the agent/extension is mid-handling) scores the domain and
+merges the result into `Incident.extra`, then broadcasts an `incident.updated` event so the
+already-visible row fills in live:
+
+1. Check the domain against the free [URLhaus](https://urlhaus.abuse.ch/) hostname blocklist
+   (no API key, cached in memory with a TTL) — a hit scores 100/"high".
+2. Otherwise, a raw WHOIS domain-age lookup (`python-whois`, no API key) — newer domains score
+   higher, an established domain scores low, a failed/unsupported lookup scores 50/"unknown"
+   rather than erroring.
+
+Both sources were chosen specifically because they need no account, no API key, no paid tier —
+consistent with everything else in this project that's been kept to "works out of the box."
+
+### Browser extension: what was tried, and why it isn't a TLS-intercepting proxy
+
+Almost every real checkout page is HTTPS, so the desktop agent's plain-HTTP network-egress
+proxy can't see a card number typed into a payment form. Two "fully silent" approaches to that
+problem were attempted and deliberately abandoned, for reasons worth recording:
+
+1. **A local root CA + TLS-terminating proxy** (agent generates a CA, installs it into the
+   Windows trust store, terminates and re-establishes TLS per connection to inspect decrypted
+   bodies — the same technique mitmproxy/Fiddler/Charles use for debugging). Certificate
+   generation and per-user (`CurrentUser`) trust-store writes turned out to be fine; the actual
+   TLS-terminating proxy code and machine-wide (`LocalMachine`) trust-store writes were both
+   refused by this project's own tooling permission system. Read charitably, that's a reasonable
+   line to draw — "silently decrypt someone's HTTPS traffic" and "silently modify what a machine
+   trusts system-wide" are exactly the moves a malicious tool would make too, and a security
+   product shouldn't need either to do its job.
+2. **Force-installing a browser extension via `ExtensionInstallForcelist`** (a real, standard
+   Chrome/Edge enterprise policy — just not one a *vendor's own consumer installer* should be
+   silently writing to `HKLM` on a stranger's machine). Also refused, and on reflection this one
+   is correct architecture, not just a tooling limitation: that policy exists for a customer's
+   *own* IT department to deploy to a fleet *they* administer, not for us to invoke unprompted.
+   Every comparable real product (password managers, enterprise DLP/CASB vendors) draws this
+   same line — publish to the store, let IT push it via their own Group Policy/Intune if they
+   want silence, and get a normal one-click "Add to Chrome" for everyone else.
+
+What shipped instead, in `browser-extension/`: a content script reads form field values
+directly (the same technique every password manager uses), Luhn-validates and redacts to
+last-4 entirely client-side, and reports through the same self-register + incident API the
+desktop agent uses — no network interception needed at all, since the content script sees the
+value before the browser ever encrypts it. It is **not** auto-installed. The console's Overview
+page shows a normal "Install extension" prompt (`components/extension-install-banner.tsx`,
+gated on a new `Agent.kind` field distinguishing `browser_extension` agents from `native` ones)
+linking to the real store listing once published — see `browser-extension/README.md` for the
+publishing steps and how a customer's own IT can still deploy it silently via their own policy.
+
+### Tray notifier and Session 0
+
+A Windows Service runs in Session 0, isolated from the interactive desktop — it cannot show a
+notification no matter how it's written. `agent/CloakDlp.Tray/` is a small per-user app that
+runs in the logged-in user's own session instead, signs in via the same loopback `local-login`
+flow, and subscribes to the console's existing incident WebSocket feed to show a
+`NotifyIcon.ShowBalloonTip` notification per match. It starts via a Startup-folder shortcut
+(visible and removable from Settings → Apps → Startup, unlike a hidden registry Run key) rather
+than as a service, specifically so it *can* show UI.
+
 ## Phasing
 
 - **Phase 1 — Pipe MVP** *(done)*: console skeleton (auth, policy CRUD, empty-state dashboards)
@@ -140,10 +239,13 @@ for the full breakdown. The two packaging decisions worth knowing about:
 
 ```
 CloakDLP/
-  agent/              C#/.NET usermode agent
-  console-backend/     FastAPI, SQLite/Postgres
-  console-frontend/    Next.js + Tailwind + shadcn/ui
-  installer/           WiX MSI: installs both as Windows services
-  docs/                design notes, detection rule specs, etc.
+  agent/
+    CloakDlp.Agent/     C#/.NET usermode agent (runs as a Windows Service)
+    CloakDlp.Tray/       per-user notification tray app (see Session 0 note above)
+  browser-extension/    card-entry detection without TLS interception (see above)
+  console-backend/       FastAPI, SQLite/Postgres
+  console-frontend/      Next.js + Tailwind + shadcn/ui
+  installer/             WiX MSI: services + tray startup shortcut + extension zip
+  docs/                  design notes, detection rule specs, etc.
   ARCHITECTURE.md
 ```

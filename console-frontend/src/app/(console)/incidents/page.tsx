@@ -5,7 +5,7 @@ import { MoreHorizontal, ShieldAlert } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { ActionBadge, IncidentStatusBadge } from "@/components/badges";
+import { ActionBadge, IncidentStatusBadge, RiskBadge, type RiskLevel } from "@/components/badges";
 import { PageHeader } from "@/components/page-header";
 import { RedactedSnippet } from "@/components/redacted-snippet";
 import { Badge } from "@/components/ui/badge";
@@ -87,6 +87,12 @@ export default function IncidentsPage() {
 
   const isEmpty = useMemo(() => incidents !== null && incidents.length === 0, [incidents]);
 
+  function riskInfo(incident: Incident): { domain: string | null; level: RiskLevel | null } {
+    const domain = typeof incident.extra?.domain === "string" ? incident.extra.domain : null;
+    const level = typeof incident.extra?.risk_level === "string" ? (incident.extra.risk_level as RiskLevel) : null;
+    return { domain, level };
+  }
+
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeader
@@ -134,6 +140,7 @@ export default function IncidentsPage() {
               <TableHead>Rule</TableHead>
               <TableHead>Snippet</TableHead>
               <TableHead>Source</TableHead>
+              <TableHead className="w-32">Risk</TableHead>
               <TableHead className="w-32">Status</TableHead>
               <TableHead className="w-10" />
             </TableRow>
@@ -142,7 +149,7 @@ export default function IncidentsPage() {
             {incidents === null &&
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 8 }).map((__, j) => (
+                  {Array.from({ length: 9 }).map((__, j) => (
                     <TableCell key={j}>
                       <Skeleton className="h-4 w-full" />
                     </TableCell>
@@ -152,7 +159,7 @@ export default function IncidentsPage() {
 
             {isEmpty && (
               <TableRow>
-                <TableCell colSpan={8} className="h-48 text-center">
+                <TableCell colSpan={9} className="h-48 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <ShieldAlert className="size-6" />
                     <p className="text-sm">No incidents match this view yet.</p>
@@ -178,7 +185,14 @@ export default function IncidentsPage() {
                   <RedactedSnippet value={incident.redacted_snippet} />
                 </TableCell>
                 <TableCell className="max-w-56 truncate font-mono text-xs text-muted-foreground">
-                  {incident.source_identifier || "—"}
+                  {riskInfo(incident).domain ?? incident.source_identifier ?? "—"}
+                </TableCell>
+                <TableCell>
+                  {incident.channel === "network" ? (
+                    <RiskBadge level={riskInfo(incident).level} />
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   <IncidentStatusBadge status={incident.status} />

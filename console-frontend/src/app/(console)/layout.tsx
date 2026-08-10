@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { ExtensionInstallBanner } from "@/components/extension-install-banner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/lib/auth-context";
@@ -35,6 +36,7 @@ export default function ConsoleLayout({ children }: { children: React.ReactNode 
         <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger />
         </header>
+        <ExtensionInstallBanner />
         <div className="flex-1 overflow-auto px-6 py-6">{children}</div>
       </SidebarInset>
     </SidebarProvider>

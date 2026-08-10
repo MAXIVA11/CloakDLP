@@ -29,11 +29,11 @@ if (args[0] == "service")
     return 0;
 }
 
-var config = AgentRuntime.LoadConfig();
+var config = await AgentRuntime.LoadConfigAsync();
 
 if (string.IsNullOrWhiteSpace(config.AgentId) || string.IsNullOrWhiteSpace(config.ApiKey))
 {
-    Console.Error.WriteLine("Agent is not registered. Set AgentId/ApiKey in appsettings.json (obtained via console agent registration).");
+    Console.Error.WriteLine("Couldn't pair with a console. Is it running at " + config.ConsoleUrl + "?");
     return 1;
 }
 

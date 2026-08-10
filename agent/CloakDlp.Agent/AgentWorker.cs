@@ -6,14 +6,15 @@ public sealed class AgentWorker : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var config = AgentRuntime.LoadConfig();
-
         // A Windows Service should be resilient to the console being briefly unreachable (boot
         // ordering, network hiccups, a console restart) rather than crash-looping under the SCM.
+        // Config is (re)loaded every iteration so a pairing attempt that failed because the
+        // console hadn't started yet gets retried automatically, not just once at startup.
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
+                var config = await AgentRuntime.LoadConfigAsync();
                 await AgentRuntime.RunChannelsAsync(config, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)

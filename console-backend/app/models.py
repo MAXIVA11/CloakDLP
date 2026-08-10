@@ -55,6 +55,11 @@ class AgentStatus(str, enum.Enum):
     offline = "offline"
 
 
+class AgentKind(str, enum.Enum):
+    native = "native"
+    browser_extension = "browser_extension"
+
+
 class EdmFieldType(str, enum.Enum):
     email = "email"
     number = "number"
@@ -99,6 +104,7 @@ class Agent(Base):
     hostname: Mapped[str] = mapped_column(String, unique=True, index=True)
     api_key_hash: Mapped[str] = mapped_column(String)
     status: Mapped[AgentStatus] = mapped_column(Enum(AgentStatus), default=AgentStatus.offline)
+    kind: Mapped[AgentKind] = mapped_column(Enum(AgentKind), default=AgentKind.native)
     policy_version: Mapped[str] = mapped_column(String, default="")
     last_heartbeat: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
