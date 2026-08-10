@@ -1,3 +1,4 @@
+using System.Text;
 using CloakDlp.Agent;
 using CloakDlp.Agent.Channels;
 using CloakDlp.Agent.Config;
@@ -9,6 +10,13 @@ if (args.Length == 0)
 {
     PrintUsage();
     return 1;
+}
+
+if (args[0] == "hash" && args.Length >= 2)
+{
+    var bytes = await File.ReadAllBytesAsync(args[1]);
+    Console.WriteLine(Ctph.Hash(bytes));
+    return 0;
 }
 
 var configuration = new ConfigurationBuilder()
@@ -29,7 +37,8 @@ if (string.IsNullOrWhiteSpace(config.AgentId) || string.IsNullOrWhiteSpace(confi
 using var client = new ConsoleApiClient(config);
 var reporter = new IncidentReporter(client, config.PolicyIdsByDataType);
 var pipeline = new DetectorPipeline(await LoadEdmDetectorsAsync());
-await client.HeartbeatAsync(policyVersion: "phase3-v1");
+var fingerprintMatcher = new FingerprintMatcher(await LoadFingerprintReferencesAsync(), config.FingerprintThreshold);
+await client.HeartbeatAsync(policyVersion: "phase4-v1");
 
 switch (args[0])
 {
@@ -52,14 +61,17 @@ async Task<int> RunScanAsync(string filePath)
         return 1;
     }
 
-    var content = await File.ReadAllTextAsync(filePath);
-    var matches = pipeline.Scan(content);
+    var bytes = await File.ReadAllBytesAsync(filePath);
+    var content = Encoding.UTF8.GetString(bytes);
+
+    var matches = pipeline.Scan(content).Concat(fingerprintMatcher.Match(bytes)).ToList();
     Console.WriteLine($"Scanned {filePath}: {matches.Count} match(es).");
 
     var reported = 0;
+    var fullPath = Path.GetFullPath(filePath);
     foreach (var match in matches)
     {
-        if (await reporter.ReportAsync(match, "file", Path.GetFullPath(filePath)))
+        if (await reporter.ReportAsync(match, "file", fullPath))
             reported++;
     }
 
@@ -81,7 +93,7 @@ async Task<int> RunMonitorAsync()
 
     var clipboard = new ClipboardMonitor(pipeline, reporter);
     var print = new PrintMonitor(pipeline, reporter);
-    var proxy = new NetworkProxyMonitor(pipeline, reporter, config.ProxyPort);
+    var proxy = new NetworkProxyMonitor(pipeline, reporter, config.ProxyPort, fingerprintMatcher);
 
     var tasks = new List<Task>
     {
@@ -123,9 +135,31 @@ async Task<List<IDetector>> LoadEdmDetectorsAsync()
     return detectors;
 }
 
+async Task<List<FingerprintReference>> LoadFingerprintReferencesAsync()
+{
+    var references = new List<FingerprintReference>();
+    foreach (var binding in config.FingerprintDatasets)
+    {
+        if (string.IsNullOrWhiteSpace(binding.DatasetId) || string.IsNullOrWhiteSpace(binding.PolicyId))
+            continue;
+
+        var set = await client.GetFingerprintDetectionSetAsync(binding.DatasetId);
+        if (set is null)
+        {
+            Console.Error.WriteLine($"[fingerprint] failed to fetch dataset {binding.DatasetId}, skipping.");
+            continue;
+        }
+
+        references.Add(new FingerprintReference(set.Id, binding.PolicyId, set.Name, set.CtphHash));
+        Console.WriteLine($"[fingerprint] loaded reference '{set.Name}'.");
+    }
+    return references;
+}
+
 void PrintUsage()
 {
     Console.WriteLine("Usage:");
     Console.WriteLine("  CloakDlp.Agent scan <file-path>   One-shot file-channel scan.");
     Console.WriteLine("  CloakDlp.Agent monitor            Watch clipboard, print, and network channels.");
+    Console.WriteLine("  CloakDlp.Agent hash <file-path>   Print a file's CTPH fingerprint (no console connection needed).");
 }

@@ -84,6 +84,8 @@ class Policy(Base):
     simulate_mode: Mapped[bool] = mapped_column(Boolean, default=True)
     # Only meaningful when data_type == edm_dataset — which reference dataset this policy checks against.
     edm_dataset_id: Mapped[str | None] = mapped_column(ForeignKey("edm_datasets.id"), nullable=True)
+    # Only meaningful when data_type == fingerprint_doc — which reference document this policy checks against.
+    fingerprint_dataset_id: Mapped[str | None] = mapped_column(ForeignKey("fingerprint_datasets.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
 
@@ -135,4 +137,16 @@ class EdmDataset(Base):
     # they're hashed once at ingestion time and discarded.
     hashes: Mapped[list] = mapped_column(JSON, default=list)
     value_count: Mapped[int] = mapped_column(default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class FingerprintDataset(Base):
+    __tablename__ = "fingerprint_datasets"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    name: Mapped[str] = mapped_column(String)
+    # CTPH fuzzy hash of the reference document, "blockSize:sigB:sig2B". The raw document
+    # content is hashed once at upload and discarded — never stored.
+    ctph_hash: Mapped[str] = mapped_column(String)
+    source_filename: Mapped[str] = mapped_column(String, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

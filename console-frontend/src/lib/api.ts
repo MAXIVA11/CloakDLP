@@ -4,6 +4,7 @@ import type {
   DashboardStats,
   EdmDataset,
   EdmFieldType,
+  FingerprintDataset,
   Incident,
   IncidentStatus,
   Policy,
@@ -162,6 +163,31 @@ export async function createEdmDataset(
 
 export async function deleteEdmDataset(token: string, id: string): Promise<void> {
   const res = await fetch(`${API_URL}/api/edm/datasets/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  return handle<void>(res);
+}
+
+export async function listFingerprints(token: string): Promise<FingerprintDataset[]> {
+  const res = await fetch(`${API_URL}/api/fingerprints`, { headers: authHeaders(token) });
+  return handle<FingerprintDataset[]>(res);
+}
+
+export async function createFingerprint(token: string, name: string, file: File): Promise<FingerprintDataset> {
+  const form = new FormData();
+  form.set("name", name);
+  form.set("file", file);
+  const res = await fetch(`${API_URL}/api/fingerprints`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: form,
+  });
+  return handle<FingerprintDataset>(res);
+}
+
+export async function deleteFingerprint(token: string, id: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/fingerprints/${id}`, {
     method: "DELETE",
     headers: authHeaders(token),
   });

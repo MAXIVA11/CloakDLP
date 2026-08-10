@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import Base, engine
-from app.routers import agents, auth, dashboard, edm, incidents, policies, ws
+from app.routers import agents, auth, dashboard, edm, fingerprints, incidents, policies, ws
 
 Base.metadata.create_all(bind=engine)
 
@@ -22,6 +22,7 @@ app.include_router(policies.router)
 app.include_router(agents.router)
 app.include_router(incidents.router)
 app.include_router(edm.router)
+app.include_router(fingerprints.router)
 app.include_router(dashboard.router)
 app.include_router(ws.router)
 

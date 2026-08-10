@@ -83,6 +83,24 @@ normalize and hash them the same way, and check set membership — so a match is
 reported without either the console or the wire ever seeing the raw candidate value or the raw
 reference data at the same time.
 
+### Document fingerprinting implementation notes (Phase 4)
+
+Uses a from-scratch Context-Triggered Piecewise Hash (CTPH) — algorithmically in the spirit of
+ssdeep/TLSH (rolling-hash trigger points chunk the input; a piece hash between triggers becomes
+one signature character; two block sizes are hashed per document so differently-sized-but-
+related documents still have common ground to compare on) but not binary-compatible with either.
+Implemented twice — `console-backend/app/ctph.py` (hashes a document once at upload, then
+discards it — only the hash is stored) and `agent/CloakDlp.Agent/Detection/Ctph.cs` (hashes
+locally scanned files/uploads and compares similarity, 0-100 via normalized edit distance
+between signatures). **The two implementations must stay in lockstep** — CTPH isn't a
+standardized format the way SHA-256 is; a hash from one implementation is only meaningful
+compared against another hash from the *same* spec. Verified byte-identical output for
+identical input across both languages before relying on it.
+
+Comparison happens agent-side, same posture as EDM: the agent fetches the reference hash (a
+non-reversible fuzzy digest, safe to distribute) once at startup, hashes local content, and
+only reports on a match — raw document bytes never cross the wire in either direction.
+
 ## Phasing
 
 - **Phase 1 — Pipe MVP** *(done)*: console skeleton (auth, policy CRUD, empty-state dashboards)
@@ -93,7 +111,7 @@ reference data at the same time.
   simulate-vs-enforce.
 - **Phase 3 — Exact Data Match** *(done)*: reference dataset ingestion, local salted hashing,
   EDM detection.
-- **Phase 4 — Document fingerprinting**: fuzzy hashing (ssdeep/TLSH).
+- **Phase 4 — Document fingerprinting** *(done)*: fuzzy hashing, CTPH (see below).
 - **Phase 5 — Cross-channel correlation**: linked-event incidents.
 - **Phase 6 — Enforcement hardening (deferred, scope TBD)**: kernel-level components
   (minifilter for file block, WFP callout for network block) if usermode enforcement proves

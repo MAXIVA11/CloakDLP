@@ -23,6 +23,7 @@ export interface Policy {
   enabled: boolean;
   simulate_mode: boolean;
   edm_dataset_id: string | null;
+  fingerprint_dataset_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -76,5 +77,12 @@ export interface EdmDataset {
   name: string;
   field_type: EdmFieldType;
   value_count: number;
+  created_at: string;
+}
+
+export interface FingerprintDataset {
+  id: string;
+  name: string;
+  source_filename: string;
   created_at: string;
 }
