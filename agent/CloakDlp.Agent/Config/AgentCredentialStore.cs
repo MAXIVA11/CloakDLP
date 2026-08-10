@@ -33,6 +33,21 @@ public static class AgentCredentialStore
         File.WriteAllText(StorePath, JsonSerializer.Serialize(new StoredCredentials { AgentId = agentId, ApiKey = apiKey }));
     }
 
+    // Called when the console stops recognizing these credentials (e.g. its database was reset
+    // or the agent record was deleted) — forces a fresh self-registration on the next pairing
+    // attempt instead of retrying the same dead credentials forever.
+    public static void Clear()
+    {
+        try
+        {
+            if (File.Exists(StorePath)) File.Delete(StorePath);
+        }
+        catch
+        {
+            // best-effort — worst case the next attempt still finds the stale file and fails again
+        }
+    }
+
     private sealed class StoredCredentials
     {
         public string AgentId { get; set; } = "";

@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
-from app.models import Action, Agent, AgentStatus, Channel, Incident, IncidentStatus, Policy
+from app.models import Action, Agent, Channel, Incident, IncidentStatus, Policy
+from app.routers.agents import ONLINE_THRESHOLD
 from app.schemas import ChannelBreakdown, DashboardStats
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"], dependencies=[Depends(get_current_user)])
@@ -25,7 +26,11 @@ def stats(db: Session = Depends(get_db)):
         )
 
     active_policies = db.query(func.count(Policy.id)).filter(Policy.enabled.is_(True)).scalar() or 0
-    agents_online = db.query(func.count(Agent.id)).filter(Agent.status == AgentStatus.online).scalar() or 0
+    online_cutoff = datetime.now(timezone.utc) - ONLINE_THRESHOLD
+    agents_online = (
+        db.query(func.count(Agent.id)).filter(Agent.last_heartbeat.isnot(None), Agent.last_heartbeat >= online_cutoff).scalar()
+        or 0
+    )
     agents_total = db.query(func.count(Agent.id)).scalar() or 0
 
     total_incidents = db.query(func.count(Incident.id)).scalar() or 0

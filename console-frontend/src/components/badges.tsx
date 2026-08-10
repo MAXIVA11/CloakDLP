@@ -2,7 +2,7 @@ import { Ban, Eye, FileText, ShieldQuestion } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { Action, AgentStatus, IncidentStatus } from "@/lib/types";
+import type { Action, IncidentStatus } from "@/lib/types";
 
 export type RiskLevel = "low" | "medium" | "high" | "unknown";
 
@@ -74,20 +74,43 @@ export function RiskBadge({ level }: { level: RiskLevel | null }) {
   );
 }
 
-export function AgentStatusBadge({ status }: { status: AgentStatus }) {
-  const isOnline = status === "online";
+export function AgentStatusBadge({ online }: { online: boolean }) {
   return (
     <Badge
       variant="outline"
       className={cn(
         "border-transparent",
-        isOnline ? "bg-success/10 text-success dark:bg-success/20" : "bg-muted text-muted-foreground",
+        online ? "bg-success/10 text-success dark:bg-success/20" : "bg-muted text-muted-foreground",
       )}
     >
-      <span
-        className={cn("size-1.5 rounded-full", isOnline ? "bg-success" : "bg-muted-foreground")}
-      />
-      {isOnline ? "Online" : "Offline"}
+      <span className={cn("size-1.5 rounded-full", online ? "bg-success" : "bg-muted-foreground")} />
+      {online ? "Online" : "Offline"}
+    </Badge>
+  );
+}
+
+export type ChannelState = "online" | "offline" | "not_installed";
+
+export function ChannelStatusBadge({ state }: { state: ChannelState }) {
+  if (state === "not_installed") {
+    return (
+      <Badge variant="outline" className="border-transparent bg-muted text-muted-foreground">
+        <span className="size-1.5 rounded-full bg-muted-foreground" />
+        Not installed
+      </Badge>
+    );
+  }
+  const online = state === "online";
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        "border-transparent",
+        online ? "bg-success/10 text-success dark:bg-success/20" : "bg-warning/10 text-warning dark:bg-warning/20",
+      )}
+    >
+      <span className={cn("size-1.5 rounded-full", online ? "bg-success" : "bg-warning")} />
+      {online ? "Online" : "Offline"}
     </Badge>
   );
 }

@@ -51,6 +51,7 @@ export interface Agent {
   id: string;
   hostname: string;
   status: AgentStatus;
+  online: boolean;
   kind: AgentKind;
   policy_version: string;
   last_heartbeat: string | null;
@@ -59,6 +60,20 @@ export interface Agent {
 export interface ExtensionStatus {
   installed: boolean;
   store_url: string;
+}
+
+export interface ChannelStatus {
+  installed: boolean;
+  online: boolean;
+  last_heartbeat: string | null;
+  policy_version: string;
+}
+
+export interface WorkstationStatus {
+  hostname: string | null;
+  desktop_agent: ChannelStatus;
+  browser_extension: ChannelStatus;
+  extension_store_url: string;
 }
 
 export interface DashboardStats {

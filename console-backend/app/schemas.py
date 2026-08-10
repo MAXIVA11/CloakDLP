@@ -89,6 +89,7 @@ class AgentOut(BaseModel):
     id: str
     hostname: str
     status: AgentStatus
+    online: bool
     kind: AgentKind
     policy_version: str
     last_heartbeat: datetime | None
@@ -101,6 +102,20 @@ class AgentHeartbeat(BaseModel):
 class ExtensionStatus(BaseModel):
     installed: bool
     store_url: str
+
+
+class ChannelStatus(BaseModel):
+    installed: bool
+    online: bool
+    last_heartbeat: datetime | None = None
+    policy_version: str = ""
+
+
+class WorkstationStatus(BaseModel):
+    hostname: str | None
+    desktop_agent: ChannelStatus
+    browser_extension: ChannelStatus
+    extension_store_url: str
 
 
 # --- Incident ---

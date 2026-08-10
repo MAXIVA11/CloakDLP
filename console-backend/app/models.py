@@ -101,7 +101,12 @@ class Agent(Base):
     __tablename__ = "agents"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
-    hostname: Mapped[str] = mapped_column(String, unique=True, index=True)
+    # Not unique on its own: the desktop agent and the browser extension both self-register
+    # under the same machine hostname (see self_register_agent) so the console can group them
+    # as one workstation. Uniqueness is per (hostname, kind) instead — enforced at the
+    # application level in agents.py, not here, since SQLite can't cheaply swap a column's
+    # unique index on an already-deployed database.
+    hostname: Mapped[str] = mapped_column(String, index=True)
     api_key_hash: Mapped[str] = mapped_column(String)
     status: Mapped[AgentStatus] = mapped_column(Enum(AgentStatus), default=AgentStatus.offline)
     kind: Mapped[AgentKind] = mapped_column(Enum(AgentKind), default=AgentKind.native)
