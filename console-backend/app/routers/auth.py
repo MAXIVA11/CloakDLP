@@ -15,8 +15,19 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 LOCAL_USER_EMAIL = "local-admin@cloakdlp.local"
 
 
-@router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=UserOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_loopback)],
+)
 def register(payload: UserCreate, db: Session = Depends(get_db)):
+    # Loopback-only, same trust boundary as local-login: account creation needs to happen from
+    # the console's own machine. Without this, anyone who could reach the API — e.g. over the
+    # LAN, which the console's own login page explicitly falls back to supporting — could
+    # self-register a full-access account with no invitation and no owner approval. Signing in
+    # afterward (POST /login) still works from anywhere once the account exists; only creating
+    # new accounts is restricted.
     if db.query(User).filter(User.email == payload.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
     user = User(email=payload.email, hashed_password=hash_password(payload.password))
