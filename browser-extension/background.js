@@ -33,10 +33,14 @@ async function getCredentials() {
   return selfRegister();
 }
 
-// The console's "is the extension installed?" check (drives the install prompt on the
-// Overview page) looks for an agent record with a recent heartbeat, same signal the native
-// agent gives it — so the extension needs to send one too. MV3 service workers don't run
-// continuously, so this fires on every browser/extension startup rather than on a timer.
+// The console's Agents view derives online/offline from heartbeat recency (10-minute window on
+// the server), the same signal the native agent gives it — so the extension needs to keep
+// sending one too, not just once at startup. MV3 service workers get killed when idle and
+// setInterval doesn't survive that, so chrome.alarms (which wakes the worker up even after it's
+// been unloaded) is the only reliable way to do this periodically instead of just on
+// browser/extension startup.
+const HEARTBEAT_ALARM = "cloakdlp-heartbeat";
+
 async function heartbeat() {
   try {
     const creds = await getCredentials();
@@ -50,12 +54,22 @@ async function heartbeat() {
       body: JSON.stringify({ policy_version: "extension-v1" }),
     });
   } catch {
-    // console not running yet — fine, we'll try again next startup or the next card detection
+    // console not running yet — fine, we'll try again next alarm or the next card detection
   }
 }
 
-chrome.runtime.onStartup.addListener(heartbeat);
-chrome.runtime.onInstalled.addListener(heartbeat);
+function armHeartbeatAlarm() {
+  heartbeat();
+  // Re-creating an alarm that already exists just resets its schedule — harmless, and cheap
+  // insurance against the alarm ever having been cleared.
+  chrome.alarms.create(HEARTBEAT_ALARM, { periodInMinutes: 5 });
+}
+
+chrome.runtime.onStartup.addListener(armHeartbeatAlarm);
+chrome.runtime.onInstalled.addListener(armHeartbeatAlarm);
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === HEARTBEAT_ALARM) heartbeat();
+});
 
 async function postIncident(creds, redactedSnippet, pageUrl) {
   return fetch(`${CONSOLE_URL}/api/incidents`, {

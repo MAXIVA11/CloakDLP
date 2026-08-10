@@ -6,10 +6,13 @@ hasn't seen since restart, which is an acceptable tradeoff for how infrequently 
 install restarts versus how often the same handful of shopping sites get charged again.
 """
 
+import logging
 import time
 import urllib.request
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+
+logger = logging.getLogger("cloakdlp.risk_scoring")
 
 URLHAUS_HOSTFILE_URL = "https://urlhaus.abuse.ch/downloads/hostfile/"
 BLOCKLIST_TTL_SECONDS = 6 * 60 * 60  # 6 hours
@@ -81,7 +84,13 @@ def _check_domain_age(domain: str) -> RiskResult:
             return RiskResult(score=30, level="medium", reason=f"domain is under a year old ({age_days} days)")
         years = age_days // 365
         return RiskResult(score=10, level="low", reason=f"domain has an established history (~{years} year(s) old)")
-    except Exception:
+    except Exception as exc:
+        # Swallowing broadly is intentional — a WHOIS failure degrades to "unknown" rather than
+        # ever blocking incident ingestion — but logging *why* matters: WHOIS runs from inside
+        # the Windows Service process, which can have different outbound network permissions
+        # (firewall rules, AV policy) than an interactive user session, so failures here can be
+        # invisible unless they're actually written down somewhere.
+        logger.warning("WHOIS lookup failed for %s: %s: %s", domain, type(exc).__name__, exc)
         return RiskResult(score=50, level="unknown", reason="WHOIS lookup failed or unsupported for this domain")
 
 

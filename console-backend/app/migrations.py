@@ -32,6 +32,25 @@ def run_migrations() -> None:
                     ddl += f" DEFAULT {default_sql}"
                 conn.execute(text(ddl))
 
+        _drop_stale_unique_index(conn, "agents", "ix_agents_hostname")
+
+
+def _drop_stale_unique_index(conn, table_name: str, index_name: str) -> None:
+    """agents.hostname used to be unique on its own; it's now unique per (hostname, kind) so
+    the desktop agent and browser extension can share a hostname and group as one workstation.
+    create_all() never touches an index that already exists under this name, so an install that
+    predates that change is stuck with the old UNIQUE index forever unless it's dropped and
+    recreated here — otherwise the extension's self-register call 500s the moment it tries to
+    reuse the desktop agent's hostname."""
+    row = conn.execute(
+        text("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name=:t AND name=:n"),
+        {"t": table_name, "n": index_name},
+    ).fetchone()
+    if row is None or row[0] is None or "UNIQUE" not in row[0].upper():
+        return
+    conn.execute(text(f"DROP INDEX {index_name}"))
+    conn.execute(text(f"CREATE INDEX {index_name} ON {table_name} (hostname)"))
+
 
 def _literal_default(column) -> str | None:
     """SQLite backfills existing rows with the ALTER TABLE ... DEFAULT value, which is exactly

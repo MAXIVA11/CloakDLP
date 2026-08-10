@@ -1,5 +1,6 @@
 import type {
   Agent,
+  AgentKind,
   CurrentUser,
   DashboardStats,
   EdmDataset,
@@ -10,6 +11,7 @@ import type {
   IncidentStatus,
   Policy,
   PolicyInput,
+  WorkstationStatus,
 } from "@/lib/types";
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8123";
@@ -139,14 +141,23 @@ export async function listAgents(token: string): Promise<Agent[]> {
   return handle<Agent[]>(res);
 }
 
+export async function deleteAgent(token: string, agentId: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/agents/${agentId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  await handle<void>(res);
+}
+
 export async function registerAgent(
   token: string,
   hostname: string,
+  kind: AgentKind = "native",
 ): Promise<{ id: string; hostname: string; api_key: string }> {
   const res = await fetch(`${API_URL}/api/agents/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders(token) },
-    body: JSON.stringify({ hostname }),
+    body: JSON.stringify({ hostname, kind }),
   });
   return handle(res);
 }
@@ -154,6 +165,11 @@ export async function registerAgent(
 export async function getExtensionStatus(token: string): Promise<ExtensionStatus> {
   const res = await fetch(`${API_URL}/api/agents/extension-status`, { headers: authHeaders(token) });
   return handle<ExtensionStatus>(res);
+}
+
+export async function getWorkstationStatus(token: string): Promise<WorkstationStatus> {
+  const res = await fetch(`${API_URL}/api/agents/workstation`, { headers: authHeaders(token) });
+  return handle<WorkstationStatus>(res);
 }
 
 export async function listEdmDatasets(token: string): Promise<EdmDataset[]> {
