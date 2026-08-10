@@ -1,0 +1,95 @@
+name: Build and release installer
+
+# Pushing a v* tag builds CloakDLP-Setup.msi and publishes a GitHub Release with it attached.
+# If SignPath secrets are configured (see installer/README.md), the release is updated with a
+# SignPath-signed MSI a few minutes later. Until then, releases ship the unsigned MSI — SmartScreen
+# will flag it as from an unrecognized publisher, same as manual local builds.
+#
+# workflow_dispatch lets you run the build (no release) to sanity-check it without tagging.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    outputs:
+      unsigned-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Install WiX Toolset
+        # Pinned to v5 deliberately: v7+ requires accepting a paid "Open Source Maintenance
+        # Fee" EULA, v5 doesn't. See installer/README.md.
+        run: |
+          dotnet tool install --global wix --version 5.0.2
+          wix extension add --global WixToolset.UI.wixext/5.0.2
+          wix extension add --global WixToolset.Util.wixext/5.0.2
+
+      - name: Set up console-backend venv
+        run: |
+          python -m venv console-backend\.venv
+          console-backend\.venv\Scripts\pip install -r console-backend\requirements.txt
+        shell: pwsh
+
+      - name: Build installer
+        run: pwsh -File installer\build.ps1
+        shell: pwsh
+
+      - name: Upload unsigned MSI (build artifact)
+        id: upload-unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          name: CloakDLP-Setup-unsigned
+          path: installer/out/CloakDLP-Setup.msi
+          if-no-files-found: error
+
+      - name: Publish release with unsigned MSI
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installer/out/CloakDLP-Setup.msi
+          generate_release_notes: true
+
+  sign:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') && vars.SIGNPATH_ENABLED == 'true'
+    steps:
+      # NOTE: verify the action's current major version tag against your SignPath project's
+      # own "Add to CI" snippet when you set this up — signpath/github-action-submit-signing-
+      # request has had multiple majors and this may be stale by the time you read it.
+      - name: Submit signing request to SignPath
+        id: sign
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ secrets.SIGNPATH_ORG_ID }}
+          project-slug: "cloakdlp"
+          signing-policy-slug: "release-signing"
+          github-artifact-id: ${{ needs.build.outputs.unsigned-artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed
+
+      - name: Update release with signed MSI
+        uses: softprops/action-gh-release@v2
+        with:
+          files: signed/CloakDLP-Setup.msi

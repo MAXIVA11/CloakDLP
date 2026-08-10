@@ -57,6 +57,41 @@ would be a much bigger trust decision than this project takes on by default.
 Data (`cloakdlp.db`, the auto-generated JWT signing secret, service logs) lives under
 `C:\ProgramData\CloakDLP\`.
 
+## Code signing (SmartScreen)
+
+An unsigned MSI trips Microsoft Defender SmartScreen's "Windows protected your PC / Unknown
+publisher" warning for anyone who downloads it — that's not a bug, it's what SmartScreen does
+for any unsigned binary from an unrecognized publisher, and there's no metadata fix for it
+short of a real code-signing certificate.
+
+`.github/workflows/release.yml` is wired up for **free code signing via
+[SignPath.io](https://signpath.io)** (they sign open-source project releases at no cost). It's
+currently a no-op — pushing a `v*` tag builds and releases the **unsigned** MSI until this is
+configured. To turn signing on:
+
+1. Sign up at [signpath.io](https://signpath.io) and apply for the open-source plan.
+2. Create a SignPath **project** (slug `cloakdlp` — matches `project-slug` in the workflow; if
+   you pick a different slug, update the workflow to match).
+3. Create a **signing policy** for Windows/Authenticode signing (slug `release-signing` —
+   again, update the workflow if you name it differently).
+4. Install the SignPath GitHub App on `MAXIVA11/CloakDLP` and link the repo as a trusted build
+   system (SignPath's dashboard walks through this — it's their recommended "GitHub.com
+   trusted build system" flow).
+5. In the repo's **Settings → Secrets and variables → Actions**, add:
+   - Secret `SIGNPATH_API_TOKEN` — a submitter-scoped API token from SignPath.
+   - Secret `SIGNPATH_ORG_ID` — your SignPath organization ID.
+   - Repository **variable** (not secret) `SIGNPATH_ENABLED` = `true` — this is the workflow's
+     kill switch; the `sign` job is skipped entirely until it's set.
+6. Push a `v*` tag. The `build` job publishes the release with the unsigned MSI first; the
+   `sign` job then submits it to SignPath and replaces the release asset with the signed one a
+   few minutes later.
+
+I couldn't complete steps 1-5 myself — they require creating an account, accepting SignPath's
+terms, and linking the actual GitHub App to the repo, all of which only the repo owner can do.
+The workflow file also references `signpath/github-action-submit-signing-request@v1`; SignPath's
+own "add to CI" snippet (shown once your project exists) is the source of truth if that's since
+moved to a newer major version — worth a quick diff against what's in `release.yml`.
+
 ## Verification status
 
 Built and validated in this repo's dev environment: `wix msi validate` (full ICE ruleset)
