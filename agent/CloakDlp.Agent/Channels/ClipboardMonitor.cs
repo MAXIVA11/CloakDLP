@@ -29,7 +29,7 @@ public sealed class ClipboardMonitor
             cbSize = (uint)Marshal.SizeOf<User32.WNDCLASSEX>(),
             lpfnWndProc = wndProc,
             lpszClassName = "CloakDlpClipboardListener",
-            hInstance = Marshal.GetHINSTANCE(typeof(ClipboardMonitor).Module),
+            hInstance = Kernel32.GetModuleHandle(null),
         };
 
         if (User32.RegisterClassEx(ref wc) == 0)

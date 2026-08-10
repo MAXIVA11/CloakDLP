@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package
+    Name="CloakDLP"
+    Manufacturer="CloakDLP"
+    Version="0.4.0.0"
+    UpgradeCode="17D219AF-C57B-4340-AB4D-6B3EA6B10D37"
+    Language="1033"
+    Scope="perMachine">
+
+    <SummaryInformation Description="CloakDLP — content-aware DLP policy orchestrator" Manufacturer="CloakDLP" />
+
+    <MajorUpgrade
+      DowngradeErrorMessage="A newer version of CloakDLP is already installed."
+      Schedule="afterInstallInitialize" />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="CloakDLPIcon" SourceFile="cloakdlp.ico" />
+    <Property Id="ARPPRODUCTICON" Value="CloakDLPIcon" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/MAXIVA11/CloakDLP" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/MAXIVA11/CloakDLP" />
+    <Property Id="ARPNOREPAIR" Value="1" />
+    <Property Id="ARPCOMMENTS" Value="Content-aware DLP: policy console (service) + endpoint agent (service)." />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="CloakDLP">
+        <Directory Id="CONSOLEDIR" Name="console">
+          <Directory Id="STATICDIR" Name="static" />
+        </Directory>
+        <Directory Id="AGENTDIR" Name="agent" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ShortcutFolder" Name="CloakDLP" />
+    </StandardDirectory>
+
+    <!-- Console: backend exe + WinSW-wrapped service registration -->
+    <ComponentGroup Id="ConsoleFiles" Directory="CONSOLEDIR">
+      <Component Id="ConsoleExe" Guid="*">
+        <File Id="ConsoleExeFile" Source="staging\console\CloakDLP-Console.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="ConsoleIcon" Guid="*">
+        <File Id="ConsoleIconFile" Source="staging\console\cloakdlp.ico" KeyPath="yes" />
+      </Component>
+      <Component Id="ConsoleServiceXml" Guid="*">
+        <File Id="ConsoleServiceXmlFile" Source="staging\console\CloakDLPConsoleService.xml" KeyPath="yes" />
+      </Component>
+      <!-- CloakDLPConsoleService.exe is WinSW (github.com/winsw/winsw), which reads the
+           adjacent .xml config and behaves as a normal SCM-aware service host — WiX's
+           ServiceInstall/ServiceControl below manage it exactly like the native agent service. -->
+      <Component Id="ConsoleServiceExe" Guid="*">
+        <File Id="ConsoleServiceExeFile" Source="staging\console\CloakDLPConsoleService.exe" KeyPath="yes" />
+        <ServiceInstall
+          Id="ConsoleServiceInstall"
+          Name="CloakDLPConsole"
+          DisplayName="CloakDLP Console"
+          Description="CloakDLP policy orchestrator API and web console (http://127.0.0.1:8123)."
+          Start="auto"
+          Type="ownProcess"
+          ErrorControl="normal" />
+        <ServiceControl
+          Id="ConsoleServiceControl"
+          Name="CloakDLPConsole"
+          Start="install"
+          Stop="both"
+          Remove="uninstall"
+          Wait="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="StaticFiles" Directory="STATICDIR">
+      <Files Include="staging\console\static\**" />
+    </ComponentGroup>
+
+    <!-- Agent: self-contained exe, runs natively as a Windows Service via `agent.exe service' -->
+    <ComponentGroup Id="AgentFiles" Directory="AGENTDIR">
+      <Component Id="AgentConfig" Guid="*">
+        <File Id="AgentConfigFile" Source="staging\agent\appsettings.json" KeyPath="yes" />
+      </Component>
+      <Component Id="AgentExe" Guid="*">
+        <File Id="AgentExeFile" Source="staging\agent\CloakDlp.Agent.exe" KeyPath="yes" />
+        <ServiceInstall
+          Id="AgentServiceInstall"
+          Name="CloakDLPAgent"
+          DisplayName="CloakDLP Agent"
+          Description="CloakDLP endpoint content-inspection agent (clipboard, print, network channels)."
+          Start="auto"
+          Type="ownProcess"
+          ErrorControl="normal"
+          Arguments="service" />
+        <ServiceControl
+          Id="AgentServiceControl"
+          Name="CloakDLPAgent"
+          Start="install"
+          Stop="both"
+          Remove="uninstall"
+          Wait="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="Shortcuts" Directory="ShortcutFolder">
+      <Component Id="OpenConsoleShortcut" Guid="18AA278C-2211-4C3D-8D98-59DFFFB3E23D">
+        <File Id="OpenConsoleShortcutFile" Source="staging\CloakDLP Console.url" />
+        <RemoveFolder Id="RemoveShortcutFolder" Directory="ShortcutFolder" On="uninstall" />
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\CloakDLP"
+          Name="StartMenuShortcutInstalled"
+          Type="integer"
+          Value="1"
+          KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <Feature Id="Main" Title="CloakDLP" Level="1">
+      <ComponentGroupRef Id="ConsoleFiles" />
+      <ComponentGroupRef Id="StaticFiles" />
+      <ComponentGroupRef Id="AgentFiles" />
+      <ComponentGroupRef Id="Shortcuts" />
+    </Feature>
+
+    <ui:WixUI Id="WixUI_Minimal" />
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+
+  </Package>
+</Wix>
