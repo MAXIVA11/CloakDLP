@@ -1,5 +1,7 @@
 <div align="center">
 
+  <img src="docs/assets/logo.png" alt="CloakDLP logo" width="120">
+
   # 💳 CloakDLP
 
   **Know the moment your card number leaves the keyboard.**
@@ -22,6 +24,10 @@ You know the feeling: a bank statement lands with a charge you don't recognize, 
 guessing whether it's fraud or something you forgot about months ago. CloakDLP watches the moment
 that actually matters, the second you type a card number into a form, and tells you exactly where
 it went and how sketchy that destination looks, before your bank ever has to.
+
+<p align="center">
+  <img src="docs/assets/screenshot-incidents.png" width="900" alt="CloakDLP console incidents feed showing four flagged card-entry events with redacted card numbers, source domains, and risk badges: high risk, unscored, and low risk">
+</p>
 
 ## 🔍 What's inside
 
