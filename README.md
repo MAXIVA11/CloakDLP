@@ -1,6 +1,6 @@
 <div align="center">
 
-  <img src="docs/assets/logo.png" alt="CloakDLP logo" width="120">
+  <img src="docs/assets/logo.png" alt="CloakDLP logo" width="180">
 
   # 💳 CloakDLP
 
