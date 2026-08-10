@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
-import { getCurrentUser, localLogin, login as apiLogin } from "@/lib/api";
+import { getCurrentUser, localLogin, login as apiLogin, register as apiRegister } from "@/lib/api";
 import type { CurrentUser } from "@/lib/types";
 
 const TOKEN_KEY = "cloakdlp_token";
@@ -12,6 +12,7 @@ interface AuthState {
   user: CurrentUser | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -64,6 +65,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(u);
   }, []);
 
+  const register = useCallback(async (email: string, password: string) => {
+    await apiRegister(email, password);
+    const accessToken = await apiLogin(email, password);
+    const u = await getCurrentUser(accessToken);
+    window.localStorage.setItem(TOKEN_KEY, accessToken);
+    setToken(accessToken);
+    setUser(u);
+  }, []);
+
   const logout = useCallback(() => {
     window.localStorage.removeItem(TOKEN_KEY);
     setToken(null);
@@ -71,8 +81,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ token, user, loading, login, logout }),
-    [token, user, loading, login, logout],
+    () => ({ token, user, loading, login, register, logout }),
+    [token, user, loading, login, register, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
