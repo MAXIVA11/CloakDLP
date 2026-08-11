@@ -79,7 +79,7 @@ Copy-Item "$root\agent\CloakDlp.Agent\publish\CloakDlp.Agent.exe" "$stagingDir\a
 Copy-Item "$root\agent\CloakDlp.Agent\publish\appsettings.json" "$stagingDir\agent\"
 
 Copy-Item "$root\agent\CloakDlp.Tray\publish\CloakDlp.Tray.exe" "$stagingDir\tray\"
-Copy-Item "$root\agent\CloakDlp.Tray\publish\appsettings.json" "$stagingDir\tray\"
+Copy-Item "$root\agent\CloakDlp.Tray\publish\tray-config.json" "$stagingDir\tray\"
 Copy-Item "$root\agent\CloakDlp.Tray\tray.ico" "$stagingDir\tray\"
 
 # Not installed or force-registered anywhere - just the source, zipped up for whoever submits

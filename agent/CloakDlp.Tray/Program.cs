@@ -3,6 +3,11 @@ using System.Net.Http.Json;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using CloakDlp.Agent;
+using CloakDlp.Agent.Channels;
+using CloakDlp.Agent.Config;
+using CloakDlp.Agent.ConsoleApi;
+using CloakDlp.Agent.Detection;
 
 ApplicationConfiguration.Initialize();
 
@@ -39,6 +44,7 @@ var cts = new CancellationTokenSource();
 Application.ApplicationExit += (_, _) => cts.Cancel();
 
 _ = Task.Run(() => WatchIncidentsAsync(cts.Token));
+_ = Task.Run(() => WatchClipboardAsync(cts.Token));
 
 Application.Run();
 
@@ -72,7 +78,7 @@ string LoadConsoleUrl()
 {
     try
     {
-        var path = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+        var path = Path.Combine(AppContext.BaseDirectory, "tray-config.json");
         var json = File.ReadAllText(path);
         using var doc = JsonDocument.Parse(json);
         if (doc.RootElement.TryGetProperty("ConsoleUrl", out var value) && value.GetString() is { } url)
@@ -146,6 +152,51 @@ async Task WatchIncidentsAsync(CancellationToken ct)
         {
             break;
         }
+    }
+}
+
+// Clipboard detection lives here, not in the CloakDLP Agent Windows Service, because Windows
+// Services run in Session 0 and cannot receive WM_CLIPBOARDUPDATE from the interactive desktop
+// session no matter how correct the listener code is (confirmed directly: the service logged
+// "monitoring started" and then nothing, ever, even with a valid card number on the clipboard).
+// This reuses the desktop agent's own identity (agent_credentials.json, written by
+// CloakDlp.Agent) to report incidents, rather than self-registering a second agent - self-
+// register is idempotent per (hostname, kind), so a second "native" registration here would
+// silently reissue a fresh API key and invalidate the one the actual agent service is using.
+async Task WatchClipboardAsync(CancellationToken ct)
+{
+    while (!ct.IsCancellationRequested)
+    {
+        var stored = AgentCredentialStore.Load();
+        if (stored is not { DefaultCreditCardPolicyId: { Length: > 0 } } creds)
+        {
+            // Desktop agent hasn't paired yet (fresh install, console still starting) or its
+            // stored credentials predate the credit-card policy id; nothing to report against
+            // yet. Check again shortly rather than starting a listener that can never report.
+            try { await Task.Delay(TimeSpan.FromSeconds(15), ct); } catch (OperationCanceledException) { break; }
+            continue;
+        }
+
+        var config = new AgentConfig { ConsoleUrl = consoleUrl, AgentId = creds.AgentId, ApiKey = creds.ApiKey };
+        config.PolicyIdsByDataType["credit_card"] = creds.DefaultCreditCardPolicyId!;
+
+        using var client = new ConsoleApiClient(config);
+        var reporter = new IncidentReporter(client, config.PolicyIdsByDataType);
+        var pipeline = new DetectorPipeline();
+        var clipboard = new ClipboardMonitor(pipeline, reporter);
+
+        Console.WriteLine("[clipboard] starting, reusing desktop agent identity.");
+        try
+        {
+            clipboard.Run(ct);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[clipboard] listener crashed, restarting shortly: {ex.Message}");
+        }
+
+        if (ct.IsCancellationRequested) break;
+        try { await Task.Delay(TimeSpan.FromSeconds(15), ct); } catch (OperationCanceledException) { break; }
     }
 }
 

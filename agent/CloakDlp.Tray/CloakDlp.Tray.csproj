@@ -9,13 +9,27 @@
     <ApplicationIcon>tray.ico</ApplicationIcon>
   </PropertyGroup>
 
+  <!-- Named tray-config.json, not appsettings.json: the ProjectReference below makes
+       CloakDlp.Agent's own appsettings.json flow into this project's publish output too (an
+       unconditional MSBuild behavior for project-to-project content items, not something a
+       per-reference flag can suppress), and it would otherwise collide with this file at the
+       same output path (NETSDK1152). Tray reads this one directly (see LoadConsoleUrl below),
+       not through Microsoft.Extensions.Configuration, so renaming it is a purely local change. -->
   <ItemGroup>
-    <None Update="appsettings.json">
+    <None Update="tray-config.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <Content Include="tray.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+
+  <!-- Reuses the agent's clipboard listener, detector pipeline, and console API client so
+       clipboard monitoring (which only works from a per-user process, not the Session-0 Windows
+       Service - see AgentRuntime.RunChannelsAsync) can run here instead, sharing the exact same
+       detection/reporting code path rather than a duplicated copy. -->
+  <ItemGroup>
+    <ProjectReference Include="..\CloakDlp.Agent\CloakDlp.Agent.csproj" />
   </ItemGroup>
 
 </Project>

@@ -26,10 +26,17 @@ public static class AgentRuntime
         if (string.IsNullOrWhiteSpace(config.AgentId) || string.IsNullOrWhiteSpace(config.ApiKey))
         {
             var stored = AgentCredentialStore.Load();
-            if (stored is { } creds)
+
+            // A stored file written before DefaultCreditCardPolicyId existed (or one saved back
+            // when the console had no credit-card policy yet) has it null/empty; self-register
+            // is idempotent per (hostname, kind) so re-running it is safe and is the only way to
+            // pick that value up, rather than staying permanently unable to report credit-card
+            // incidents just because the very first pairing attempt predates this field.
+            if (stored is { DefaultCreditCardPolicyId: { Length: > 0 } } creds)
             {
                 config.AgentId = creds.AgentId;
                 config.ApiKey = creds.ApiKey;
+                ApplyDefaultCreditCardPolicy(config, creds.DefaultCreditCardPolicyId);
             }
             else
             {
@@ -38,8 +45,18 @@ public static class AgentRuntime
                 {
                     config.AgentId = issued.AgentId;
                     config.ApiKey = issued.ApiKey;
-                    AgentCredentialStore.Save(issued.AgentId, issued.ApiKey);
+                    ApplyDefaultCreditCardPolicy(config, issued.DefaultCreditCardPolicyId);
+                    AgentCredentialStore.Save(issued.AgentId, issued.ApiKey, issued.DefaultCreditCardPolicyId);
                     Console.WriteLine($"[pairing] self-registered as '{Environment.MachineName}' with the console at {config.ConsoleUrl}.");
+                }
+                else if (stored is { } fallback)
+                {
+                    // Console unreachable right now (e.g. still starting up); fall back to the
+                    // old stored pairing rather than running fully unpaired, even without a
+                    // refreshed policy id.
+                    config.AgentId = fallback.AgentId;
+                    config.ApiKey = fallback.ApiKey;
+                    ApplyDefaultCreditCardPolicy(config, fallback.DefaultCreditCardPolicyId);
                 }
             }
         }
@@ -47,7 +64,14 @@ public static class AgentRuntime
         return config;
     }
 
-    private static async Task<(string AgentId, string ApiKey)?> SelfRegisterAsync(string consoleUrl)
+    private static void ApplyDefaultCreditCardPolicy(AgentConfig config, string? policyId)
+    {
+        if (string.IsNullOrWhiteSpace(policyId)) return;
+        if (!config.PolicyIdsByDataType.TryGetValue("credit_card", out var existing) || string.IsNullOrWhiteSpace(existing))
+            config.PolicyIdsByDataType["credit_card"] = policyId;
+    }
+
+    private static async Task<(string AgentId, string ApiKey, string? DefaultCreditCardPolicyId)?> SelfRegisterAsync(string consoleUrl)
     {
         try
         {
@@ -56,7 +80,7 @@ public static class AgentRuntime
             if (!response.IsSuccessStatusCode) return null;
 
             var result = await response.Content.ReadFromJsonAsync<SelfRegisterResponse>();
-            return result is null ? null : (result.Id, result.ApiKey);
+            return result is null ? null : (result.Id, result.ApiKey, result.DefaultCreditCardPolicyId);
         }
         catch (Exception ex)
         {
@@ -70,9 +94,18 @@ public static class AgentRuntime
         public string Id { get; set; } = "";
         [JsonPropertyName("api_key")]
         public string ApiKey { get; set; } = "";
+        [JsonPropertyName("default_credit_card_policy_id")]
+        public string? DefaultCreditCardPolicyId { get; set; }
     }
 
-    public static async Task RunChannelsAsync(AgentConfig config, CancellationToken ct)
+    // includeClipboard is false for the Windows Service: Session 0 isolation means a service
+    // literally cannot receive WM_CLIPBOARDUPDATE from the interactive desktop session, no
+    // matter how correct the listener code is (confirmed empirically - the installed service
+    // logged "monitoring started" and then nothing, ever, even with a valid card number placed
+    // on the clipboard). Clipboard detection now runs from CloakDlp.Tray instead, which is a
+    // per-user process in the right session. Left true for the interactive `monitor` command
+    // (dev/testing only), where it does work correctly.
+    public static async Task RunChannelsAsync(AgentConfig config, CancellationToken ct, bool includeClipboard = true)
     {
         if (string.IsNullOrWhiteSpace(config.AgentId) || string.IsNullOrWhiteSpace(config.ApiKey))
         {
@@ -100,20 +133,26 @@ public static class AgentRuntime
             return;
         }
 
-        Console.WriteLine($"CloakDLP agent monitoring: clipboard, print, network (proxy on port {config.ProxyPort}).");
+        Console.WriteLine(includeClipboard
+            ? $"CloakDLP agent monitoring: clipboard, print, network (proxy on port {config.ProxyPort})."
+            : $"CloakDLP agent monitoring: print, network (proxy on port {config.ProxyPort}). Clipboard is handled by the tray notifier instead (Session 0 can't see it from here).");
 
-        var clipboard = new ClipboardMonitor(pipeline, reporter);
         var print = new PrintMonitor(pipeline, reporter);
         var proxy = new NetworkProxyMonitor(pipeline, reporter, config.ProxyPort, fingerprintMatcher);
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
 
         var tasks = new List<Task>
         {
-            Task.Run(() => clipboard.Run(linkedCts.Token), linkedCts.Token),
             Task.Run(() => print.RunAsync(linkedCts.Token), linkedCts.Token),
             Task.Run(() => proxy.RunAsync(linkedCts.Token), linkedCts.Token),
             Task.Run(() => HeartbeatLoopAsync(client, linkedCts), linkedCts.Token),
         };
+
+        if (includeClipboard)
+        {
+            var clipboard = new ClipboardMonitor(pipeline, reporter);
+            tasks.Add(Task.Run(() => clipboard.Run(linkedCts.Token), linkedCts.Token));
+        }
 
         try
         {

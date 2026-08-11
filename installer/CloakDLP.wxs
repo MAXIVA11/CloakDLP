@@ -69,6 +69,29 @@
       </Directory>
     </StandardDirectory>
 
+    <!-- Both scheduled Execute="immediate" (the default Impersonate="yes" that goes with it runs
+         the process as the actual installing user, in their session) rather than "deferred"
+         (which by default runs as SYSTEM in Session 0 - fine for file operations, useless for a
+         tray icon or opening a browser window, neither of which SYSTEM's session can show
+         anyone). Return="asyncNoWait" because neither process ever exits on its own (the tray
+         notifier runs indefinitely; the browser tab may stay open) - setup must not wait on
+         them. Condition="NOT Installed" (the MSI property, true only when this ProductCode has
+         never been installed before) so these fire once on a genuine first install/upgrade, not
+         on every repair, and never on uninstall (Installed is set by the time REMOVE=ALL runs). -->
+    <CustomAction
+      Id="LaunchTrayApp"
+      Directory="TRAYDIR"
+      ExeCommand='"[#TrayExeFile]"'
+      Execute="immediate"
+      Return="asyncNoWait" />
+
+    <CustomAction
+      Id="OpenConsoleInBrowser"
+      Directory="SystemFolder"
+      ExeCommand='cmd.exe /c start "" "http://127.0.0.1:8123/"'
+      Execute="immediate"
+      Return="asyncNoWait" />
+
     <StandardDirectory Id="ProgramMenuFolder">
       <Directory Id="ShortcutFolder" Name="CloakDLP" />
     </StandardDirectory>
@@ -152,7 +175,7 @@
          only) preference that a shortcut share a component with its target. -->
     <ComponentGroup Id="TrayFiles" Directory="TRAYDIR">
       <Component Id="TrayConfig" Guid="*">
-        <File Id="TrayConfigFile" Source="staging\tray\appsettings.json" KeyPath="yes" />
+        <File Id="TrayConfigFile" Source="staging\tray\tray-config.json" KeyPath="yes" />
       </Component>
       <Component Id="TrayIcon" Guid="*">
         <File Id="TrayIconFile" Source="staging\tray\tray.ico" KeyPath="yes" />
@@ -230,6 +253,8 @@
          [CommonAppDataFolder] is already resolved by the time this runs. -->
     <InstallExecuteSequence>
       <Custom Action="RemoveProgramDataFolder" After="RemoveFiles" Condition='REMOVE="ALL"' />
+      <Custom Action="LaunchTrayApp" After="InstallFinalize" Condition="NOT Installed" />
+      <Custom Action="OpenConsoleInBrowser" After="LaunchTrayApp" Condition="NOT Installed" />
     </InstallExecuteSequence>
 
     <ui:WixUI Id="WixUI_Minimal" />

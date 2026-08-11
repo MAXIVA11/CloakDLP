@@ -64,10 +64,17 @@ dotnet run -- service            # same channels, hosted as a Windows Service (w
 
 For desktop notifications when a match is detected, see `../CloakDlp.Tray/`, a separate
 per-user tray app (Windows Services can't show UI directly, see its own comments for why) that
-watches the console's live incident feed.
+watches the console's live incident feed. It also runs the clipboard channel itself now (see
+below), reusing this agent's paired identity from `agent_credentials.json`.
 
-`monitor` starts three channels at once:
-- **Clipboard**: reacts to `WM_CLIPBOARDUPDATE`, no polling.
+`monitor` starts three channels at once (matching what `service` runs, minus clipboard - see
+below):
+- **Clipboard**: reacts to `WM_CLIPBOARDUPDATE`, no polling. Only meaningful here in `monitor`
+  for interactive dev/testing; `service` deliberately excludes it (`RunChannelsAsync(...,
+  includeClipboard: false)`), because a Windows Service runs in Session 0, which cannot receive
+  clipboard-change notifications from the interactive desktop session at all, no matter how the
+  listener is written. `CloakDlp.Tray` runs this channel for real installs instead, since it's a
+  per-user process in the right session.
 - **Print**: watches the default printer's job queue, scans the job's document title only
   (see architecture doc for why raw spool content isn't read).
 - **Network**: an HTTP forward proxy on `ProxyPort`. Point a browser's proxy settings at

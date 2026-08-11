@@ -10,13 +10,18 @@ Under `C:\Program Files\CloakDLP\`:
 | Component | What it is | How it runs |
 |---|---|---|
 | **CloakDLP Console** (service) | Policy orchestrator API + web console, on `http://127.0.0.1:8123` | `console\CloakDLP-Console.exe`, wrapped as a Windows Service by [WinSW](https://github.com/winsw/winsw) (`console\CloakDLPConsoleService.exe`) |
-| **CloakDLP Agent** (service) | Endpoint content-inspection agent (clipboard/print/network channels) | `agent\CloakDlp.Agent.exe service`, a native Windows Service via `Microsoft.Extensions.Hosting.WindowsServices` |
-| **CloakDLP Notifier** (per-user, starts at logon) | Shows a notification when a card entry is detected | `tray\CloakDlp.Tray.exe`, via a shortcut in the current user's Startup folder, visible and removable from Settings → Apps → Startup like any other startup app |
+| **CloakDLP Agent** (service) | Endpoint content-inspection agent (print/network channels) | `agent\CloakDlp.Agent.exe service`, a native Windows Service via `Microsoft.Extensions.Hosting.WindowsServices` |
+| **CloakDLP Notifier** (per-user, launches immediately and at every logon) | Shows a notification when a card entry is detected, and runs the clipboard channel itself | `tray\CloakDlp.Tray.exe`, launched directly by the installer and via a shortcut in the current user's Startup folder, visible and removable from Settings → Apps → Startup like any other startup app |
 | Browser extension source | Zipped for reference | `extension\CloakDLP-browser-extension.zip`, **not installed or registered with any browser**; see [`../browser-extension/README.md`](../browser-extension/README.md) for why and what to do with it |
 
 The two services are registered/started/stopped/removed entirely by the MSI itself (WiX
-`ServiceInstall`/`ServiceControl`, no custom install scripts). A Start Menu shortcut ("CloakDLP
-Console") opens the console in the default browser.
+`ServiceInstall`/`ServiceControl`, no custom install scripts). The console opens in the default
+browser automatically when setup finishes, and again anytime from the Start Menu shortcut
+("CloakDLP Console").
+
+Clipboard detection runs from the Notifier, not the Agent service: Windows Services run in
+Session 0, which can't observe the interactive desktop's clipboard at all, so the Agent service
+only runs the print and network channels. See [`../agent/CloakDlp.Tray/README.md`](../agent/CloakDlp.Tray/README.md).
 
 The console frontend is a Next.js **static export** (`console-frontend/out/`) served directly
 by the backend exe via FastAPI's `StaticFiles`; see `console-backend/app/main.py` and
@@ -61,7 +66,10 @@ Output: `installer\out\CloakDLP-Setup.msi`.
 ## Installing / uninstalling
 
 Run the MSI (needs admin elevation, like any service-installing MSI) and it's done; both
-services start automatically, the tray notifier starts at next logon. Uninstall from
+services start automatically, the tray notifier launches immediately (not just at next logon -
+an `Execute="immediate"` CustomAction after `InstallFinalize` starts it in the installing user's
+own session right away, in addition to registering the Startup-folder shortcut for future
+logons), and the console opens in the default browser automatically. Uninstall from
 **Settings → Apps** or `appwiz.cpl`; the MSI stops and removes both services, the startup
 shortcut, and all installed files.
 
