@@ -15,7 +15,7 @@ public sealed class AgentWorker : BackgroundService
             try
             {
                 var config = await AgentRuntime.LoadConfigAsync();
-                await AgentRuntime.RunChannelsAsync(config, stoppingToken);
+                await AgentRuntime.RunChannelsAsync(config, stoppingToken, includeClipboard: false);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

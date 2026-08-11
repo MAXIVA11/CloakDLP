@@ -193,12 +193,23 @@ publishing steps and how a customer's own IT can still deploy it silently via th
 ### Tray notifier and Session 0
 
 A Windows Service runs in Session 0, isolated from the interactive desktop; it cannot show a
-notification no matter how it's written. `agent/CloakDlp.Tray/` is a small per-user app that
-runs in the logged-in user's own session instead, signs in via the same loopback `local-login`
-flow, and subscribes to the console's existing incident WebSocket feed to show a
-`NotifyIcon.ShowBalloonTip` notification per match. It starts via a Startup-folder shortcut
-(visible and removable from Settings → Apps → Startup, unlike a hidden registry Run key) rather
-than as a service, specifically so it *can* show UI.
+notification no matter how it's written, and - less obviously, discovered only by testing it
+directly against a real installed service - it can't receive clipboard-change notifications from
+the interactive session either (`AddClipboardFormatListener`/`WM_CLIPBOARDUPDATE` simply never
+fire there). `agent/CloakDlp.Tray/` is a small per-user app that runs in the logged-in user's own
+session instead, and does both jobs: it signs in via the same loopback `local-login` flow and
+subscribes to the console's existing incident WebSocket feed to show a `NotifyIcon.ShowBalloonTip`
+notification per match, and it runs the clipboard channel itself (via a `ProjectReference` to
+`CloakDlp.Agent`, reusing the exact same `ClipboardMonitor`/detector/reporting code, and the
+desktop agent's own paired identity from `agent_credentials.json` rather than self-registering a
+second one). The `CloakDLP Agent` Windows Service only runs the print and network channels now
+(`AgentRuntime.RunChannelsAsync(..., includeClipboard: false)`); clipboard stays available in the
+agent's own interactive `monitor` command for dev/testing, where Session 0 doesn't apply. The
+tray app launches both immediately when setup finishes (an `Execute="immediate"` install-time
+CustomAction, needed because a `deferred` one would run as SYSTEM in Session 0 too - useless for
+the same reason the service itself can't do this job) and via a Startup-folder shortcut for every
+later logon (visible and removable from Settings → Apps → Startup, unlike a hidden registry Run
+key) rather than as a service, specifically so it *can* show UI and see the clipboard.
 
 ## Phasing
 
