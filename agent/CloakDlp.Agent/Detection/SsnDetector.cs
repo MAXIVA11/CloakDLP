@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace CloakDlp.Agent.Detection;
 
 // Only matches the dashed AAA-GG-SSSS form. Bare 9-digit runs are indistinguishable from any
-// other 9-digit number and would make this detector useless on their own — a deliberate v1
+// other 9-digit number and would make this detector useless on their own; a deliberate v1
 // scope decision, not an oversight.
 public sealed partial class SsnDetector : IDetector
 {

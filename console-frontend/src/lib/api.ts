@@ -172,6 +172,10 @@ export async function getWorkstationStatus(token: string): Promise<WorkstationSt
   return handle<WorkstationStatus>(res);
 }
 
+// Loopback-gated, not user-auth; a plain <a href download> link doesn't carry the bearer
+// token a fetch() call would, so this endpoint trusts the loopback connection instead.
+export const extensionDownloadUrl = `${API_URL}/api/agents/extension-download`;
+
 export async function listEdmDatasets(token: string): Promise<EdmDataset[]> {
   const res = await fetch(`${API_URL}/api/edm/datasets`, { headers: authHeaders(token) });
   return handle<EdmDataset[]>(res);

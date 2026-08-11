@@ -1,6 +1,6 @@
 // Pairs with the local console exactly the way the .NET agent does (self-register over
 // loopback, no manual API key entry) and forwards redacted card-entry events content.js finds.
-// This service worker never sees the actual card digits — content.js already redacted before
+// This service worker never sees the actual card digits; content.js already redacted before
 // sending the message.
 
 const CONSOLE_URL = "http://127.0.0.1:8123";
@@ -34,7 +34,7 @@ async function getCredentials() {
 }
 
 // The console's Agents view derives online/offline from heartbeat recency (10-minute window on
-// the server), the same signal the native agent gives it — so the extension needs to keep
+// the server), the same signal the native agent gives it; so the extension needs to keep
 // sending one too, not just once at startup. MV3 service workers get killed when idle and
 // setInterval doesn't survive that, so chrome.alarms (which wakes the worker up even after it's
 // been unloaded) is the only reliable way to do this periodically instead of just on
@@ -54,13 +54,13 @@ async function heartbeat() {
       body: JSON.stringify({ policy_version: "extension-v1" }),
     });
   } catch {
-    // console not running yet — fine, we'll try again next alarm or the next card detection
+    // console not running yet; fine, we'll try again next alarm or the next card detection
   }
 }
 
 function armHeartbeatAlarm() {
   heartbeat();
-  // Re-creating an alarm that already exists just resets its schedule — harmless, and cheap
+  // Re-creating an alarm that already exists just resets its schedule; harmless, and cheap
   // insurance against the alarm ever having been cleared.
   chrome.alarms.create(HEARTBEAT_ALARM, { periodInMinutes: 5 });
 }
@@ -94,12 +94,12 @@ async function postIncident(creds, redactedSnippet, pageUrl) {
 async function reportIncident(redactedSnippet, pageUrl) {
   try {
     let creds = await getCredentials();
-    if (!creds.policyId) return; // console has no enabled credit_card policy — nothing to file against
+    if (!creds.policyId) return; // console has no enabled credit_card policy; nothing to file against
 
     let res = await postIncident(creds, redactedSnippet, pageUrl);
 
     if (res.status === 401) {
-      // Stored API key no longer valid (e.g. the console's database was reset) — re-pair once.
+      // Stored API key no longer valid (e.g. the console's database was reset); re-pair once.
       await chrome.storage.local.remove(["agentId", "apiKey", "policyId"]);
       creds = await selfRegister();
       if (!creds.policyId) return;
@@ -110,7 +110,7 @@ async function reportIncident(redactedSnippet, pageUrl) {
       console.error(`[CloakDLP] incident report failed: HTTP ${res.status}`);
     }
   } catch (err) {
-    // Most likely cause: the console isn't running. Nothing useful to do but drop it — there's
+    // Most likely cause: the console isn't running. Nothing useful to do but drop it; there's
     // no local queue/retry, matching the "log only, best-effort" posture everywhere else.
     console.error("[CloakDLP] couldn't reach the console:", err);
   }

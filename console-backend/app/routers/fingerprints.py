@@ -21,7 +21,7 @@ async def create_fingerprint(
         raise HTTPException(status_code=400, detail="Uploaded file is empty")
 
     ctph = hash_bytes(content)
-    del content  # discarded immediately after hashing — never stored or logged
+    del content  # discarded immediately after hashing; never stored or logged
 
     dataset = FingerprintDataset(name=name, ctph_hash=ctph, source_filename=file.filename or "")
     db.add(dataset)

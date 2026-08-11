@@ -72,7 +72,7 @@ export function EdmDatasetDialog({
           <DialogTitle>New EDM dataset</DialogTitle>
           <DialogDescription>
             Paste one value per line. Each is normalized, salted, and hashed right here in the
-            console before storage — the raw values in the box below are never saved.
+            console before storage; the raw values in the box below are never saved.
           </DialogDescription>
         </DialogHeader>
 

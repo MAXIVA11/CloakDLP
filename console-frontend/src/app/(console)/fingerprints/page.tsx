@@ -106,7 +106,7 @@ export default function FingerprintsPage() {
               <TableRow>
                 <TableCell colSpan={5} className="h-32 text-center">
                   <p className="text-sm text-muted-foreground">
-                    No EDM datasets yet — create one, then point an &quot;Exact data match&quot;
+                    No EDM datasets yet; create one, then point an &quot;Exact data match&quot;
                     policy at it.
                   </p>
                 </TableCell>
@@ -177,7 +177,7 @@ export default function FingerprintsPage() {
               <TableRow>
                 <TableCell colSpan={4} className="h-32 text-center">
                   <p className="text-sm text-muted-foreground">
-                    No document fingerprints yet — upload a reference document, then point a
+                    No document fingerprints yet; upload a reference document, then point a
                     &quot;document fingerprint&quot; policy at it. Partial copies, reformatted
                     documents, and edited versions still match by similarity, not exact bytes.
                   </p>
@@ -189,7 +189,7 @@ export default function FingerprintsPage() {
               <TableRow key={fp.id}>
                 <TableCell className="text-sm font-medium">{fp.name}</TableCell>
                 <TableCell className="font-mono text-xs text-muted-foreground">
-                  {fp.source_filename || "—"}
+                  {fp.source_filename || "-"}
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
                   {new Date(fp.created_at).toLocaleDateString()}

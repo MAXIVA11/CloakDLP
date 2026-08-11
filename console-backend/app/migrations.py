@@ -1,4 +1,4 @@
-"""Base.metadata.create_all() only creates tables that don't exist yet — it never alters an
+"""Base.metadata.create_all() only creates tables that don't exist yet; it never alters an
 existing table when a newer model version adds a column. Upgrading over an existing cloakdlp.db
 without this patches nothing, and every query touching the changed table starts 500ing (this is
 exactly how the AgentKind pivot broke installs upgrading from before it: "no such column:
@@ -20,7 +20,7 @@ def run_migrations() -> None:
     with engine.begin() as conn:
         for table in Base.metadata.sorted_tables:
             if table.name not in existing_tables:
-                continue  # brand-new table — create_all() already handled it
+                continue  # brand-new table; create_all() already handled it
             existing_columns = {col["name"] for col in inspector.get_columns(table.name)}
             for column in table.columns:
                 if column.name in existing_columns:
@@ -40,7 +40,7 @@ def _drop_stale_unique_index(conn, table_name: str, index_name: str) -> None:
     the desktop agent and browser extension can share a hostname and group as one workstation.
     create_all() never touches an index that already exists under this name, so an install that
     predates that change is stuck with the old UNIQUE index forever unless it's dropped and
-    recreated here — otherwise the extension's self-register call 500s the moment it tries to
+    recreated here; otherwise the extension's self-register call 500s the moment it tries to
     reuse the desktop agent's hostname."""
     row = conn.execute(
         text("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name=:t AND name=:n"),
@@ -55,7 +55,7 @@ def _drop_stale_unique_index(conn, table_name: str, index_name: str) -> None:
 def _literal_default(column) -> str | None:
     """SQLite backfills existing rows with the ALTER TABLE ... DEFAULT value, which is exactly
     what's needed here (e.g. every pre-existing agent becomes kind='native', the only kind that
-    existed before this column did). Only scalar column defaults translate to SQL literals —
+    existed before this column did). Only scalar column defaults translate to SQL literals -
     callables (uuid/timestamp generators) have nothing meaningful to backfill with, so those
     columns come back NULL on old rows rather than guessing."""
     default = column.default

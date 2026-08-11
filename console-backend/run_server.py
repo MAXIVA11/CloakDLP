@@ -1,5 +1,5 @@
 """Entry point for the packaged build (PyInstaller). Local dev uses `uvicorn app.main:app`
-directly instead — this only exists so the packaged exe has something to run."""
+directly instead; this only exists so the packaged exe has something to run."""
 
 import uvicorn
 

@@ -185,13 +185,13 @@ export default function IncidentsPage() {
                   <RedactedSnippet value={incident.redacted_snippet} />
                 </TableCell>
                 <TableCell className="max-w-56 truncate font-mono text-xs text-muted-foreground">
-                  {riskInfo(incident).domain ?? incident.source_identifier ?? "—"}
+                  {riskInfo(incident).domain ?? incident.source_identifier ?? "-"}
                 </TableCell>
                 <TableCell>
                   {incident.channel === "network" ? (
                     <RiskBadge level={riskInfo(incident).level} />
                   ) : (
-                    <span className="text-xs text-muted-foreground">—</span>
+                    <span className="text-xs text-muted-foreground">-</span>
                   )}
                 </TableCell>
                 <TableCell>

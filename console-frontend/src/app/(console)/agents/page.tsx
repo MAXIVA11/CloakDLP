@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { AgentStatusBadge, ChannelStatusBadge, type ChannelState } from "@/components/badges";
+import { ExtensionInstallDialog } from "@/components/extension-install-dialog";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +42,7 @@ export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[] | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [installDialogOpen, setInstallDialogOpen] = useState(false);
   const [hostname, setHostname] = useState("");
   const [issued, setIssued] = useState<{ id: string; apiKey: string } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -132,12 +134,20 @@ export default function AgentsPage() {
                 <ChannelStatusBadge state={channelState(workstation.browser_extension)} />
                 <p className="text-xs text-muted-foreground">{lastSeenText(workstation.browser_extension)}</p>
               </div>
-              {!workstation.browser_extension.installed && workstation.extension_store_url && (
-                <Button asChild size="sm" variant="outline">
-                  <a href={workstation.extension_store_url} target="_blank" rel="noopener noreferrer">
-                    Install
-                  </a>
-                </Button>
+              {!workstation.browser_extension.installed && (
+                <>
+                  {workstation.extension_store_url ? (
+                    <Button asChild size="sm" variant="outline">
+                      <a href={workstation.extension_store_url} target="_blank" rel="noopener noreferrer">
+                        Install
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => setInstallDialogOpen(true)}>
+                      Install
+                    </Button>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -158,7 +168,7 @@ export default function AgentsPage() {
             <div className="flex items-center justify-between gap-4">
               <p className="text-xs text-muted-foreground">
                 Every agent record the console has ever paired with, including stale ones. Manual
-                registration is only for troubleshooting — both the desktop agent and the browser
+                registration is only for troubleshooting; both the desktop agent and the browser
                 extension pair themselves automatically on first run.
               </p>
               <Button size="sm" variant="outline" className="shrink-0" onClick={() => setDialogOpen(true)}>
@@ -211,7 +221,7 @@ export default function AgentsPage() {
                         <AgentStatusBadge online={agent.online} />
                       </TableCell>
                       <TableCell className="font-mono text-xs text-muted-foreground">
-                        {agent.policy_version || "—"}
+                        {agent.policy_version || "-"}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {agent.last_heartbeat
@@ -241,7 +251,7 @@ export default function AgentsPage() {
           <DialogHeader>
             <DialogTitle>Register agent manually</DialogTitle>
             <DialogDescription>
-              Issues an API key for a new endpoint. The key is shown once — copy it into the
+              Issues an API key for a new endpoint. The key is shown once; copy it into the
               agent's configuration before closing this dialog. Only needed if automatic pairing
               didn't work.
             </DialogDescription>
@@ -290,6 +300,8 @@ export default function AgentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ExtensionInstallDialog open={installDialogOpen} onOpenChange={setInstallDialogOpen} />
     </div>
   );
 }

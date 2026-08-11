@@ -41,9 +41,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     tryLocalLogin().finally(() => setLoading(false));
 
     // Zero-config sign-in: if this console is being opened on the same machine it's running
-    // on (the normal case — Start Menu shortcut, agent-adjacent tray app), the backend trusts
+    // on (the normal case; Start Menu shortcut, agent-adjacent tray app), the backend trusts
     // the loopback connection and logs us straight in. Opened from another machine on the LAN,
-    // this 403s and the regular login form shows instead — nothing breaks, it just falls back.
+    // this 403s and the regular login form shows instead; nothing breaks, it just falls back.
     async function tryLocalLogin() {
       try {
         const accessToken = await localLogin();
@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setToken(accessToken);
         setUser(u);
       } catch {
-        // not reachable via loopback (or some other failure) — fall through to manual login
+        // not reachable via loopback (or some other failure); fall through to manual login
       }
     }
   }, []);

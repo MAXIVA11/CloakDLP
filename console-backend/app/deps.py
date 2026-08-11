@@ -14,7 +14,7 @@ LOOPBACK_HOSTS = {"127.0.0.1", "::1"}
 def require_loopback(request: Request) -> None:
     # CloakDLP is a personal, single-user tool: the console binds to 127.0.0.1 by default, so
     # "the request came from this machine" is the trust boundary for the zero-config flows
-    # (local auto-login, agent self-registration) — nothing to type, nothing to copy-paste.
+    # (local auto-login, agent self-registration); nothing to type, nothing to copy-paste.
     client_host = request.client.host if request.client else None
     if client_host not in LOOPBACK_HOSTS:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Loopback only")

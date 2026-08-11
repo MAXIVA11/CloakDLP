@@ -45,7 +45,7 @@ export function FingerprintDatasetDialog({
     setSaving(true);
     try {
       const dataset = await createFingerprint(token, name.trim(), file);
-      toast.success("Document fingerprinted — original content was not stored");
+      toast.success("Document fingerprinted; original content was not stored");
       onCreated(dataset);
       onOpenChange(false);
       setName("");
@@ -63,7 +63,7 @@ export function FingerprintDatasetDialog({
         <DialogHeader>
           <DialogTitle>New document fingerprint</DialogTitle>
           <DialogDescription>
-            The file is hashed right here in the console and discarded immediately — only the
+            The file is hashed right here in the console and discarded immediately; only the
             fuzzy hash is stored, never the document itself.
           </DialogDescription>
         </DialogHeader>

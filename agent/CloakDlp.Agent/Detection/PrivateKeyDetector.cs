@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 
 namespace CloakDlp.Agent.Detection;
 
-// PEM headers are distinctive enough that this has essentially no false-positive rate — no
+// PEM headers are distinctive enough that this has essentially no false-positive rate; no
 // secondary validation needed the way credit cards need Luhn or SSNs need range checks.
 public sealed partial class PrivateKeyDetector : IDetector
 {

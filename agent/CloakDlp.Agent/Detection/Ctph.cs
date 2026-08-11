@@ -2,13 +2,13 @@ using System.Text;
 
 namespace CloakDlp.Agent.Detection;
 
-// Context-Triggered Piecewise Hashing (CTPH) — a from-scratch fuzzy hash, algorithmically in
+// Context-Triggered Piecewise Hashing (CTPH); a from-scratch fuzzy hash, algorithmically in
 // the spirit of ssdeep/TLSH but not binary-compatible with either. Small edits only perturb the
 // signature characters near the edit, so similarity between two hashes degrades gracefully
 // instead of falling off a cliff the way a cryptographic hash's would.
 //
 // This exact spec (window size, trigger rule, alphabet, block-size formula) is reimplemented in
-// the console backend (console-backend/app/ctph.py) — the two MUST stay in lockstep, or a hash
+// the console backend (console-backend/app/ctph.py); the two MUST stay in lockstep, or a hash
 // produced by one side is meaningless to the other. See ARCHITECTURE.md.
 public static class Ctph
 {
@@ -27,7 +27,7 @@ public static class Ctph
         return $"{b}:{Signature(data, b)}:{Signature(data, b * 2)}";
     }
 
-    // 0-100. Only comparable when block sizes match or one is exactly double the other —
+    // 0-100. Only comparable when block sizes match or one is exactly double the other -
     // mirrors ssdeep's own approach of generating two block-size signatures per hash so
     // similarly-sized-but-not-identical documents still have a common ground to compare on.
     public static int Similarity(string hashA, string hashB)

@@ -1,6 +1,6 @@
 namespace CloakDlp.Agent;
 
-// Windows Services have no attached console — Console.WriteLine goes nowhere. Redirect stdout
+// Windows Services have no attached console; Console.WriteLine goes nowhere. Redirect stdout
 // and stderr to a rolling-by-restart log file so an operator can actually see what happened.
 internal static class ServiceLogging
 {

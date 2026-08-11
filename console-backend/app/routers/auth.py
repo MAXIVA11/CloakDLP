@@ -23,8 +23,8 @@ LOCAL_USER_EMAIL = "local-admin@cloakdlp.local"
 )
 def register(payload: UserCreate, db: Session = Depends(get_db)):
     # Loopback-only, same trust boundary as local-login: account creation needs to happen from
-    # the console's own machine. Without this, anyone who could reach the API — e.g. over the
-    # LAN, which the console's own login page explicitly falls back to supporting — could
+    # the console's own machine. Without this, anyone who could reach the API; e.g. over the
+    # LAN, which the console's own login page explicitly falls back to supporting; could
     # self-register a full-access account with no invitation and no owner approval. Signing in
     # afterward (POST /login) still works from anywhere once the account exists; only creating
     # new accounts is restricted.
@@ -54,7 +54,7 @@ def me(current_user: User = Depends(get_current_user)):
 def local_login(db: Session = Depends(get_db)):
     """Zero-config sign-in for the console's own machine: anyone who can reach this API on
     127.0.0.1 already has whatever access they need (they're sitting at the keyboard, or they
-    are the agent/tray app running as the same user) — no password to set or remember. Gets or
+    are the agent/tray app running as the same user); no password to set or remember. Gets or
     creates the single local admin account. Not available over any non-loopback binding."""
     user = db.query(User).filter(User.email == LOCAL_USER_EMAIL).first()
     if user is None:

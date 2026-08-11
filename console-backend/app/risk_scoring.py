@@ -1,7 +1,7 @@
 """Domain risk scoring for card-entry incidents. Both data sources are free and need no API
 key or account: the URLhaus malware/phishing hostname blocklist (abuse.ch, no signup) and raw
 WHOIS domain-age lookups (python-whois, queries the WHOIS protocol directly). Results are
-cached in memory — a fresh process re-fetches the blocklist and re-queries WHOIS for domains it
+cached in memory; a fresh process re-fetches the blocklist and re-queries WHOIS for domains it
 hasn't seen since restart, which is an acceptable tradeoff for how infrequently a personal
 install restarts versus how often the same handful of shopping sites get charged again.
 """
@@ -50,7 +50,7 @@ def _refresh_blocklist() -> None:
         _blocklist = hosts
         _blocklist_fetched_at = time.time()
     except Exception:
-        # Offline, or abuse.ch is unreachable — degrade to WHOIS-only scoring rather than fail.
+        # Offline, or abuse.ch is unreachable; degrade to WHOIS-only scoring rather than fail.
         pass
 
 
@@ -85,8 +85,8 @@ def _check_domain_age(domain: str) -> RiskResult:
         years = age_days // 365
         return RiskResult(score=10, level="low", reason=f"domain has an established history (~{years} year(s) old)")
     except Exception as exc:
-        # Swallowing broadly is intentional — a WHOIS failure degrades to "unknown" rather than
-        # ever blocking incident ingestion — but logging *why* matters: WHOIS runs from inside
+        # Swallowing broadly is intentional; a WHOIS failure degrades to "unknown" rather than
+        # ever blocking incident ingestion; but logging *why* matters: WHOIS runs from inside
         # the Windows Service process, which can have different outbound network permissions
         # (firewall rules, AV policy) than an interactive user session, so failures here can be
         # invisible unless they're actually written down somewhere.
