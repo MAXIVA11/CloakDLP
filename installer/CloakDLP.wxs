@@ -28,12 +28,35 @@
 
     <!-- C:\ProgramData\CloakDLP; the runtime data directory (cloakdlp.db, jwt_secret.key,
          agent_credentials.json, logs\) that the services create themselves, not something WiX
-         ever installs a File into. Declaring it as a Directory (rather than a plain Property)
-         is what lets its Id double as a property CleanupProgramData below can resolve to a
-         real path on uninstall. -->
+         ever installs a File into. -->
     <StandardDirectory Id="CommonAppDataFolder">
       <Directory Id="CLOAKDLPDATADIR" Name="CloakDLP" />
     </StandardDirectory>
+
+    <!-- util:RemoveFolderEx doesn't work here: its worker action (Wix4RemoveFoldersEx_X64) is
+         hardcoded by the extension to sequence ~799, which runs before CostInitialize/
+         CostFinalize (~1000) — the step that actually resolves what CLOAKDLPDATADIR points to.
+         Confirmed directly via a verbose uninstall log: at the moment RemoveFoldersEx runs and
+         fails with "Missing folder property", the very next logged action is CostInitialize
+         itself, followed by "PROPERTY CHANGE: Adding CLOAKDLPDATADIR property" — the value
+         plain doesn't exist yet. WiX gives no supported way to reschedule an extension's own
+         action (Sequence/After attributes on the element are rejected; a second <Custom>
+         referencing the same action id is rejected as a duplicate). A plain rmdir, scheduled
+         explicitly After RemoveFiles (long after CostFinalize), sidesteps the whole problem.
+
+         Directory here is the working directory CreateProcess launches cmd.exe from, not the
+         thing being removed — it must NOT be INSTALLFOLDER (tried that first): by sequence
+         3501, RemoveFiles has already stripped everything out of Program Files\CloakDLP\, and
+         launching a process with a working directory that's mid-teardown fails outright
+         (verified directly: Windows Installer error 1721, "a program required for this install
+         to complete could not be run"). SystemFolder (C:\Windows\System32) always exists. -->
+    <CustomAction
+      Id="RemoveProgramDataFolder"
+      Directory="SystemFolder"
+      ExeCommand='cmd.exe /c rmdir /s /q "[CommonAppDataFolder]CloakDLP"'
+      Execute="deferred"
+      Impersonate="no"
+      Return="ignore" />
 
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="CloakDLP">
@@ -176,11 +199,10 @@
       </Component>
     </ComponentGroup>
 
-    <!-- Removes C:\ProgramData\CloakDLP (db, secrets, logs) on uninstall so nothing survives a
-         full remove; a prior version left this behind, which both looked like a broken
-         uninstall and meant a reinstall silently inherited old data instead of starting clean.
-         No File to key off (the directory's contents are all runtime-generated, not installed),
-         so this component's own keypath is a throwaway machine-wide registry value instead. -->
+    <!-- Marker component; exists so RemoveProgramDataFolder (scheduled below) has something in
+         the Feature tree to hang off of. No File to key off (C:\ProgramData\CloakDLP's contents
+         are all runtime-generated, never installed), so the keypath is a throwaway registry
+         value instead. -->
     <Component Id="CleanupProgramData" Directory="INSTALLFOLDER" Guid="6F2A9C3D-8B4E-4A1F-9D6C-2E7B5A0F3C8D">
       <RegistryValue
         Root="HKLM"
@@ -189,7 +211,6 @@
         Type="integer"
         Value="1"
         KeyPath="yes" />
-      <util:RemoveFolderEx On="uninstall" Property="CLOAKDLPDATADIR" />
     </Component>
 
     <Feature Id="Main" Title="CloakDLP" Level="1">
@@ -202,6 +223,14 @@
       <ComponentGroupRef Id="Shortcuts" />
       <ComponentRef Id="CleanupProgramData" />
     </Feature>
+
+    <!-- REMOVE="ALL" is true for a genuine uninstall, false for a repair or a feature-level
+         change — this must only ever fire when the product is actually being removed.
+         Scheduled after RemoveFiles (~3500), well past CostFinalize, so
+         [CommonAppDataFolder] is already resolved by the time this runs. -->
+    <InstallExecuteSequence>
+      <Custom Action="RemoveProgramDataFolder" After="RemoveFiles" Condition='REMOVE="ALL"' />
+    </InstallExecuteSequence>
 
     <ui:WixUI Id="WixUI_Minimal" />
     <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
