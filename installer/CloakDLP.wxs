@@ -6,7 +6,7 @@
   <Package
     Name="CloakDLP"
     Manufacturer="CloakDLP"
-    Version="0.5.0.0"
+    Version="0.6.0.0"
     UpgradeCode="17D219AF-C57B-4340-AB4D-6B3EA6B10D37"
     Language="1033"
     Scope="perMachine">
@@ -78,6 +78,22 @@
          them. Condition="NOT Installed" (the MSI property, true only when this ProductCode has
          never been installed before) so these fire once on a genuine first install/upgrade, not
          on every repair, and never on uninstall (Installed is set by the time REMOVE=ALL runs). -->
+    <!-- Runs first, always (install, repair, uninstall, and - critically - the old side of a
+         MajorUpgrade), so a still-running tray notifier from a previous install never survives
+         into the new one. Discovered live: without this, upgrading over an existing install left
+         TWO CloakDlp.Tray.exe processes running - the old one keeps executing from its
+         already-mapped image even after RemoveFiles deletes the file out from under it (Windows
+         allows that), and LaunchTrayApp below then starts a second instance for the new install,
+         both connected to the incident feed and both popping duplicate notifications. Return
+         "ignore" because taskkill exits non-zero when nothing matches, which must not fail
+         setup. -->
+    <CustomAction
+      Id="StopTrayApp"
+      Directory="SystemFolder"
+      ExeCommand='cmd.exe /c taskkill /IM CloakDlp.Tray.exe /F'
+      Execute="immediate"
+      Return="ignore" />
+
     <CustomAction
       Id="LaunchTrayApp"
       Directory="TRAYDIR"
@@ -252,6 +268,7 @@
          Scheduled after RemoveFiles (~3500), well past CostFinalize, so
          [CommonAppDataFolder] is already resolved by the time this runs. -->
     <InstallExecuteSequence>
+      <Custom Action="StopTrayApp" Before="InstallValidate" />
       <Custom Action="RemoveProgramDataFolder" After="RemoveFiles" Condition='REMOVE="ALL"' />
       <Custom Action="LaunchTrayApp" After="InstallFinalize" Condition="NOT Installed" />
       <Custom Action="OpenConsoleInBrowser" After="LaunchTrayApp" Condition="NOT Installed" />
