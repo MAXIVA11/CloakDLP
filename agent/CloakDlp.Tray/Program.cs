@@ -10,11 +10,18 @@ RedirectLogging();
 var consoleUrl = LoadConsoleUrl();
 Console.WriteLine($"[tray] starting, console at {consoleUrl}");
 
+// An icon path resolved relative to the *current working directory* rather than the exe's own
+// directory is fragile: launched via the Startup-folder shortcut it happens to work (the
+// shortcut sets WorkingDirectory=TRAYDIR), but any other launch path (double-click from
+// Explorer, a different shortcut, Task Scheduler) can leave the CWD pointed elsewhere. Icon's
+// constructor throws FileNotFoundException when that happens, which crashes this whole
+// top-level-statements program before the tray icon or logging even come up; silently, since
+// there's no console to show the exception on. AppContext.BaseDirectory is always correct.
 using var trayIcon = new NotifyIcon
 {
-    Icon = new Icon("tray.ico"),
+    Icon = new Icon(Path.Combine(AppContext.BaseDirectory, "tray.ico")),
     Visible = true,
-    Text = "CloakDLP — watching for card entry",
+    Text = "CloakDLP: watching for card entry",
 };
 
 var menu = new ContextMenuStrip();
@@ -42,7 +49,7 @@ void OpenConsole()
 
 void RedirectLogging()
 {
-    // A tray app has no console to write to — send diagnostic output somewhere findable
+    // A tray app has no console to write to; send diagnostic output somewhere findable
     // instead, matching how the agent service logs (%ProgramData%\CloakDLP\logs).
     try
     {
@@ -57,7 +64,7 @@ void RedirectLogging()
     }
     catch
     {
-        // best-effort — a tray notifier shouldn't fail to start over a logging path issue
+        // best-effort; a tray notifier shouldn't fail to start over a logging path issue
     }
 }
 
@@ -128,7 +135,7 @@ async Task WatchIncidentsAsync(CancellationToken ct)
         }
         catch
         {
-            // console unreachable or connection dropped — retry after a short delay
+            // console unreachable or connection dropped; retry after a short delay
         }
 
         try
@@ -154,14 +161,17 @@ void HandleMessage(string json)
         var channel = incident.GetProperty("channel").GetString() ?? "unknown";
         var snippet = incident.GetProperty("redacted_snippet").GetString() ?? "";
 
+        // ToolTipIcon.None (rather than .Warning) is deliberate: it stops Windows from
+        // overlaying its own generic system warning triangle on top of the notification,
+        // leaving the CloakDLP icon set on trayIcon.Icon above as the one actually shown.
         trayIcon.ShowBalloonTip(
             8000,
             "CloakDLP",
             $"A credit card number was just entered ({channel}): {snippet}",
-            ToolTipIcon.Warning);
+            ToolTipIcon.None);
     }
     catch
     {
-        // unexpected payload shape — ignore rather than crash the watcher loop
+        // unexpected payload shape; ignore rather than crash the watcher loop
     }
 }

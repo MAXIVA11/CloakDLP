@@ -175,7 +175,7 @@ export function PolicyEditorDialog({
               id="policy-name"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              placeholder="Credit card — file scan"
+              placeholder="Credit card; file scan"
             />
           </div>
 
@@ -229,7 +229,7 @@ export function PolicyEditorDialog({
               <Label>Dataset</Label>
               {edmDatasets.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
-                  No EDM datasets yet — create one on the Fingerprints page first.
+                  No EDM datasets yet; create one on the Fingerprints page first.
                 </p>
               ) : (
                 <Select
@@ -256,7 +256,7 @@ export function PolicyEditorDialog({
               <Label>Document</Label>
               {fingerprints.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
-                  No document fingerprints yet — create one on the Fingerprints page first.
+                  No document fingerprints yet; create one on the Fingerprints page first.
                 </p>
               ) : (
                 <Select

@@ -1,6 +1,6 @@
 # CloakDLP installer
 
-Builds `CloakDLP-Setup.msi` — a single MSI that installs CloakDLP and shows up in Add/Remove
+Builds `CloakDLP-Setup.msi`, a single MSI that installs CloakDLP and shows up in Add/Remove
 Programs (`appwiz.cpl`) as **CloakDLP**, cleanly uninstallable from there.
 
 ## What it installs
@@ -10,32 +10,32 @@ Under `C:\Program Files\CloakDLP\`:
 | Component | What it is | How it runs |
 |---|---|---|
 | **CloakDLP Console** (service) | Policy orchestrator API + web console, on `http://127.0.0.1:8123` | `console\CloakDLP-Console.exe`, wrapped as a Windows Service by [WinSW](https://github.com/winsw/winsw) (`console\CloakDLPConsoleService.exe`) |
-| **CloakDLP Agent** (service) | Endpoint content-inspection agent (clipboard/print/network channels) | `agent\CloakDlp.Agent.exe service` — a native Windows Service via `Microsoft.Extensions.Hosting.WindowsServices` |
-| **CloakDLP Notifier** (per-user, starts at logon) | Shows a notification when a card entry is detected | `tray\CloakDlp.Tray.exe`, via a shortcut in the current user's Startup folder — visible and removable from Settings → Apps → Startup like any other startup app |
-| Browser extension source | Zipped for reference | `extension\CloakDLP-browser-extension.zip` — **not installed or registered with any browser**; see [`../browser-extension/README.md`](../browser-extension/README.md) for why and what to do with it |
+| **CloakDLP Agent** (service) | Endpoint content-inspection agent (clipboard/print/network channels) | `agent\CloakDlp.Agent.exe service`, a native Windows Service via `Microsoft.Extensions.Hosting.WindowsServices` |
+| **CloakDLP Notifier** (per-user, starts at logon) | Shows a notification when a card entry is detected | `tray\CloakDlp.Tray.exe`, via a shortcut in the current user's Startup folder, visible and removable from Settings → Apps → Startup like any other startup app |
+| Browser extension source | Zipped for reference | `extension\CloakDLP-browser-extension.zip`, **not installed or registered with any browser**; see [`../browser-extension/README.md`](../browser-extension/README.md) for why and what to do with it |
 
 The two services are registered/started/stopped/removed entirely by the MSI itself (WiX
-`ServiceInstall`/`ServiceControl` — no custom install scripts). A Start Menu shortcut ("CloakDLP
+`ServiceInstall`/`ServiceControl`, no custom install scripts). A Start Menu shortcut ("CloakDLP
 Console") opens the console in the default browser.
 
 The console frontend is a Next.js **static export** (`console-frontend/out/`) served directly
-by the backend exe via FastAPI's `StaticFiles` — see `console-backend/app/main.py` and
+by the backend exe via FastAPI's `StaticFiles`; see `console-backend/app/main.py` and
 `console-frontend/next.config.ts`. This means **no Node.js is required on the install target**
-— only self-contained executables.
+- only self-contained executables.
 
 ## Zero-config after install
 
 Nothing to configure by hand:
 
 - **Console login**: opening the console from the Start Menu shortcut logs you in automatically
-  (loopback-trust — see `POST /api/auth/local-login` in `console-backend/app/routers/auth.py`).
+  (loopback-trust; see `POST /api/auth/local-login` in `console-backend/app/routers/auth.py`).
   No account to create, no password.
 - **Agent pairing**: the agent service self-registers with the console on first startup and
-  persists its credentials under `%ProgramData%\CloakDLP\` — no API key to copy anywhere. See
+  persists its credentials under `%ProgramData%\CloakDLP\`; no API key to copy anywhere. See
   `POST /api/agents/self-register`.
 - **Default policy**: the console auto-creates a "Credit Card Entry" policy (flag, never block)
-  on first startup if none exists — detection works the moment both services are running.
-- **Browser extension**: not auto-installed (see above) — the console's Overview page shows a
+  on first startup if none exists; detection works the moment both services are running.
+- **Browser extension**: not auto-installed (see above); the console's Overview page shows a
   one-click "Install extension" prompt once `EXTENSION_STORE_URL` is configured post-publish.
 
 ## Building
@@ -53,14 +53,14 @@ wix extension add --global WixToolset.UI.wixext/5.0.2
 wix extension add --global WixToolset.Util.wixext/5.0.2
 ```
 
-(Pinned to WiX v5 deliberately — v7+ requires accepting a paid "Open Source Maintenance Fee"
+(Pinned to WiX v5 deliberately; v7+ requires accepting a paid "Open Source Maintenance Fee"
 EULA; v5 doesn't.)
 
 Output: `installer\out\CloakDLP-Setup.msi`.
 
 ## Installing / uninstalling
 
-Run the MSI (needs admin elevation, like any service-installing MSI) and it's done — both
+Run the MSI (needs admin elevation, like any service-installing MSI) and it's done; both
 services start automatically, the tray notifier starts at next logon. Uninstall from
 **Settings → Apps** or `appwiz.cpl`; the MSI stops and removes both services, the startup
 shortcut, and all installed files.
@@ -71,15 +71,15 @@ under `C:\ProgramData\CloakDLP\`.
 ## Verification status
 
 Built and validated in this repo's dev environment: `wix msi validate` (full ICE ruleset)
-passes clean (one accepted, non-fatal ICE69 warning — see the comment above `TrayStartupShortcut`
+passes clean (one accepted, non-fatal ICE69 warning; see the comment above `TrayStartupShortcut`
 in `CloakDLP.wxs` for why), and the MSI's `ServiceInstall`/`ServiceControl`/`Shortcut`/`File`/
 `Directory` tables were inspected directly (via the Windows Installer COM API) and match what's
-authored — 93 files, 44 directories, both services present with the right start type and
+authored; 93 files, 44 directories, both services present with the right start type and
 arguments, the tray shortcut correctly targeting the tray exe. Every component (zero-config
 pairing, default policy provisioning, domain risk scoring, the browser extension's detection
 and reporting, the tray notifier's live incident feed connection, the standalone backend/agent
 exes, the Windows Service mode) was independently run and verified end-to-end earlier in this
-project's history — see `ARCHITECTURE.md` for what exactly was tested.
+project's history; see `ARCHITECTURE.md` for what exactly was tested.
 
 **Not verified**: an actual `msiexec` install/uninstall run. That needs admin elevation this
 build environment doesn't have. Before relying on this for real deployment, run the MSI once on

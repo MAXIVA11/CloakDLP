@@ -10,7 +10,7 @@ namespace CloakDlp.Agent.Channels;
 //
 // Scope note: this reads job metadata (document name) only. Reading actual spool file content
 // requires elevated access to %SystemRoot%\System32\spool\PRINTERS, which standard user
-// processes don't have — full spool content inspection is a follow-up, not implemented here.
+// processes don't have; full spool content inspection is a follow-up, not implemented here.
 public sealed class PrintMonitor
 {
     private readonly DetectorPipeline _pipeline;

@@ -5,7 +5,7 @@ using CloakDlp.Agent.Interop;
 namespace CloakDlp.Agent.Channels;
 
 // Win32 clipboard listener: a message-only window registers for WM_CLIPBOARDUPDATE via
-// AddClipboardFormatListener. No polling — the OS wakes us only when the clipboard changes.
+// AddClipboardFormatListener. No polling; the OS wakes us only when the clipboard changes.
 public sealed class ClipboardMonitor
 {
     private readonly DetectorPipeline _pipeline;
@@ -20,7 +20,7 @@ public sealed class ClipboardMonitor
 
     public void Run(CancellationToken ct)
     {
-        // Keep the delegate alive for the window's lifetime — otherwise the GC can collect it
+        // Keep the delegate alive for the window's lifetime; otherwise the GC can collect it
         // while user32 still holds a native pointer to it, corrupting the message loop.
         User32.WndProcDelegate wndProc = WndProc;
 

@@ -7,7 +7,7 @@ namespace CloakDlp.Agent.Detection;
 // Exact Data Match: candidate tokens are extracted locally, normalized and salted-hashed the
 // same way the console hashed the reference dataset, then checked against the fetched hash set.
 // The raw reference values never left the console, and the raw candidate values never leave
-// this process either — only the redacted snippet does, same as every other detector.
+// this process either; only the redacted snippet does, same as every other detector.
 public sealed partial class EdmDetector : IDetector
 {
     public string DataType => "edm_dataset";

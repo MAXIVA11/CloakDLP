@@ -87,7 +87,7 @@ export default function ReportsPage() {
           <CardContent>
             {byPolicy.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted-foreground">
-                No incidents logged yet — this fills in once policies start matching content.
+                No incidents logged yet; this fills in once policies start matching content.
               </p>
             ) : (
               <div className="flex flex-col gap-2">

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
-     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
 
   <Package
     Name="CloakDLP"
@@ -10,7 +11,7 @@
     Language="1033"
     Scope="perMachine">
 
-    <SummaryInformation Description="CloakDLP — content-aware DLP policy orchestrator" Manufacturer="CloakDLP" />
+    <SummaryInformation Description="CloakDLP; content-aware DLP policy orchestrator" Manufacturer="CloakDLP" />
 
     <MajorUpgrade
       DowngradeErrorMessage="A newer version of CloakDLP is already installed."
@@ -24,6 +25,15 @@
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/MAXIVA11/CloakDLP" />
     <Property Id="ARPNOREPAIR" Value="1" />
     <Property Id="ARPCOMMENTS" Value="Content-aware DLP: policy console (service) + endpoint agent (service)." />
+
+    <!-- C:\ProgramData\CloakDLP; the runtime data directory (cloakdlp.db, jwt_secret.key,
+         agent_credentials.json, logs\) that the services create themselves, not something WiX
+         ever installs a File into. Declaring it as a Directory (rather than a plain Property)
+         is what lets its Id double as a property CleanupProgramData below can resolve to a
+         real path on uninstall. -->
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="CLOAKDLPDATADIR" Name="CloakDLP" />
+    </StandardDirectory>
 
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="CloakDLP">
@@ -54,7 +64,7 @@
         <File Id="ConsoleServiceXmlFile" Source="staging\console\CloakDLPConsoleService.xml" KeyPath="yes" />
       </Component>
       <!-- CloakDLPConsoleService.exe is WinSW (github.com/winsw/winsw), which reads the
-           adjacent .xml config and behaves as a normal SCM-aware service host — WiX's
+           adjacent .xml config and behaves as a normal SCM-aware service host; WiX's
            ServiceInstall/ServiceControl below manage it exactly like the native agent service. -->
       <Component Id="ConsoleServiceExe" Guid="*">
         <File Id="ConsoleServiceExeFile" Source="staging\console\CloakDLPConsoleService.exe" KeyPath="yes" />
@@ -107,13 +117,13 @@
     </ComponentGroup>
 
     <!-- Tray notifier: shows a notification when the agent/extension detect a card entry.
-         Starts automatically at logon via a shortcut in the current user's Startup folder —
+         Starts automatically at logon via a shortcut in the current user's Startup folder -
          the same standard, user-visible mechanism Dropbox/Discord/Steam etc. use; it shows up
          in Task Manager's Startup Apps tab and Settings > Apps > Startup like any other, and
          can be disabled there the same way.
 
          The shortcut is its own component with an HKCU keypath (not the exe file) even though
-         that means it's in a different component than its Target file — Windows Installer's
+         that means it's in a different component than its Target file; Windows Installer's
          own validation (ICE43/57) requires a per-user keypath for any component containing a
          per-user-directory shortcut, which takes priority over ICE69's (non-fatal, warning
          only) preference that a shortcut share a component with its target. -->
@@ -144,7 +154,7 @@
         KeyPath="yes" />
     </Component>
 
-    <!-- Browser extension source, zipped for reference/store submission — not installed or
+    <!-- Browser extension source, zipped for reference/store submission; not installed or
          registered with any browser. See browser-extension/README.md. -->
     <ComponentGroup Id="ExtensionFiles" Directory="EXTENSIONDIR">
       <Component Id="ExtensionZip" Guid="*">
@@ -166,6 +176,22 @@
       </Component>
     </ComponentGroup>
 
+    <!-- Removes C:\ProgramData\CloakDLP (db, secrets, logs) on uninstall so nothing survives a
+         full remove; a prior version left this behind, which both looked like a broken
+         uninstall and meant a reinstall silently inherited old data instead of starting clean.
+         No File to key off (the directory's contents are all runtime-generated, not installed),
+         so this component's own keypath is a throwaway machine-wide registry value instead. -->
+    <Component Id="CleanupProgramData" Directory="INSTALLFOLDER" Guid="6F2A9C3D-8B4E-4A1F-9D6C-2E7B5A0F3C8D">
+      <RegistryValue
+        Root="HKLM"
+        Key="Software\CloakDLP"
+        Name="Installed"
+        Type="integer"
+        Value="1"
+        KeyPath="yes" />
+      <util:RemoveFolderEx On="uninstall" Property="CLOAKDLPDATADIR" />
+    </Component>
+
     <Feature Id="Main" Title="CloakDLP" Level="1">
       <ComponentGroupRef Id="ConsoleFiles" />
       <ComponentGroupRef Id="StaticFiles" />
@@ -174,6 +200,7 @@
       <ComponentRef Id="TrayStartupShortcut" />
       <ComponentGroupRef Id="ExtensionFiles" />
       <ComponentGroupRef Id="Shortcuts" />
+      <ComponentRef Id="CleanupProgramData" />
     </Feature>
 
     <ui:WixUI Id="WixUI_Minimal" />

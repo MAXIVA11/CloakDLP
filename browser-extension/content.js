@@ -5,7 +5,7 @@
 // browser itself, not subject to the frame's own CSP/CORS the way the page's own JS would be.
 //
 // Only ever sends a redacted (last-4) snippet plus this frame's domain to the background
-// worker — never the actual digits.
+// worker; never the actual digits.
 
 (function () {
   "use strict";
@@ -71,7 +71,7 @@
   );
 
   // Password managers / autofill often set .value programmatically without firing input events
-  // the same way a real keystroke would — a submit-time sweep catches those too.
+  // the same way a real keystroke would; a submit-time sweep catches those too.
   document.addEventListener(
     "submit",
     (event) => {

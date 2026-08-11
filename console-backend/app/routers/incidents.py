@@ -35,11 +35,11 @@ def _extract_domain(source_identifier: str) -> str | None:
 
 
 async def _score_domain_and_update(incident_id: str, domain: str) -> None:
-    # Runs after the response is already sent — a WHOIS lookup can take a few seconds, and the
+    # Runs after the response is already sent; a WHOIS lookup can take a few seconds, and the
     # agent reporting this incident is often mid-request itself (the network proxy forwards the
     # user's actual checkout request right after reporting), so incident creation must never
     # block on this. score_domain does blocking socket I/O, so it's offloaded to a thread rather
-    # than awaited directly — otherwise it would stall the whole event loop, not just this task.
+    # than awaited directly; otherwise it would stall the whole event loop, not just this task.
     result = await asyncio.to_thread(score_domain, domain)
 
     db = SessionLocal()

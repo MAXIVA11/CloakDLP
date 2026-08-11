@@ -8,16 +8,16 @@ namespace CloakDlp.Agent.Channels;
 // A plain-HTTP forward proxy (point a browser's proxy settings at 127.0.0.1:<port>). Built on
 // raw TcpListener rather than HttpListener: HttpListener resolves Request.Url against its own
 // registered prefix, not the absolute-URI a proxy client actually requests, which makes it
-// silently loop a request back on itself instead of forwarding it — not usable for a real
-// forward proxy. Buffers each request body, scans it, then forwards it unchanged — Phase 2 is
+// silently loop a request back on itself instead of forwarding it; not usable for a real
+// forward proxy. Buffers each request body, scans it, then forwards it unchanged; Phase 2 is
 // detect/log only, never blocks.
 //
 // Scope notes:
 //  - HTTP only. HTTPS interception needs a local CA installed into the OS/browser trust store
-//    to MITM TLS — a much larger, more invasive follow-up deliberately left out of this phase.
+//    to MITM TLS; a much larger, more invasive follow-up deliberately left out of this phase.
 //    CONNECT requests (how browsers tunnel HTTPS through a proxy) are rejected with 501.
 //  - Content-Length bodies only; chunked transfer-encoding requests are forwarded unscanned.
-//  - One request per connection (Connection: close on both legs) — no keep-alive.
+//  - One request per connection (Connection: close on both legs); no keep-alive.
 public sealed class NetworkProxyMonitor
 {
     private readonly DetectorPipeline _pipeline;

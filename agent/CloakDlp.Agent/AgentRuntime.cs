@@ -9,7 +9,7 @@ using Microsoft.Extensions.Configuration;
 namespace CloakDlp.Agent;
 
 // Shared setup + channel-watching loop used by both the interactive `monitor` command and the
-// Windows Service worker — the two have identical behavior, just different hosts/lifecycles.
+// Windows Service worker; the two have identical behavior, just different hosts/lifecycles.
 public static class AgentRuntime
 {
     public static async Task<AgentConfig> LoadConfigAsync()
@@ -76,7 +76,7 @@ public static class AgentRuntime
     {
         if (string.IsNullOrWhiteSpace(config.AgentId) || string.IsNullOrWhiteSpace(config.ApiKey))
         {
-            Console.Error.WriteLine("Agent is not paired with a console yet (self-registration hasn't succeeded — is the console running?).");
+            Console.Error.WriteLine("Agent is not paired with a console yet (self-registration hasn't succeeded; is the console running?).");
             return;
         }
 
@@ -88,14 +88,14 @@ public static class AgentRuntime
         if (!await client.HeartbeatAsync("phase4-v1", ct))
         {
             // Stored credentials don't correspond to any agent the console currently knows
-            // about (its database was reset, or this record was deleted) — retrying the same
+            // about (its database was reset, or this record was deleted); retrying the same
             // dead credentials forever would just heartbeat-fail silently forever. Clearing
             // the store makes the next pairing attempt (30s later, via the outer retry loop)
             // self-register fresh instead. Only meaningful when credentials came from that
             // store in the first place; if they were hardcoded in appsettings.json this is a
             // harmless no-op and the same failure will keep showing up in the logs until a
             // human fixes the config.
-            Console.Error.WriteLine("[pairing] console rejected our credentials — clearing stored pairing and re-registering.");
+            Console.Error.WriteLine("[pairing] console rejected our credentials; clearing stored pairing and re-registering.");
             AgentCredentialStore.Clear();
             return;
         }
@@ -127,7 +127,7 @@ public static class AgentRuntime
     }
 
     // The console derives online/offline from heartbeat recency (10-minute window), not from a
-    // one-shot flag — a heartbeat sent only once at startup would make a perfectly healthy,
+    // one-shot flag; a heartbeat sent only once at startup would make a perfectly healthy,
     // days-old agent look offline. This keeps it fresh well inside that window.
     private static async Task HeartbeatLoopAsync(ConsoleApiClient client, CancellationTokenSource cts)
     {
@@ -147,7 +147,7 @@ public static class AgentRuntime
                 Console.Error.WriteLine($"[heartbeat] rejected by console ({consecutiveFailures} in a row).");
                 if (consecutiveFailures >= 2)
                 {
-                    // Two in a row (~4 minutes) rules out a one-off blip — the console genuinely
+                    // Two in a row (~4 minutes) rules out a one-off blip; the console genuinely
                     // doesn't recognize us anymore. Clear the stale pairing and tear the whole
                     // channel loop down so the outer retry re-pairs from scratch, rather than
                     // quietly monitoring under dead credentials indefinitely.

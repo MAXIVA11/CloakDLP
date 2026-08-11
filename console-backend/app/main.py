@@ -19,7 +19,7 @@ app = FastAPI(title="CloakDLP Console API", version="0.1.0")
 
 # Only needed for local dev, where the frontend (npm run dev, port 3000) and backend run as
 # separate origins. The packaged app serves the frontend from the same origin as the API, so it
-# needs no CORS at all — and shipping this permissively in the packaged build was a real bug:
+# needs no CORS at all; and shipping this permissively in the packaged build was a real bug:
 # any other local process bound to port 3000 could read authenticated responses (including
 # local-login's token) via a credentialed cross-origin fetch. No CORS middleware means the
 # browser's default same-origin policy applies, which is exactly what the packaged app wants.
@@ -48,7 +48,7 @@ def health():
 
 
 # Serves the console frontend's static export (console-frontend/out/, copied to static/ by the
-# packaging script) so a single packaged process serves both the API and the UI — no Node.js
+# packaging script) so a single packaged process serves both the API and the UI; no Node.js
 # runtime needed on the install target. Not present in normal backend-only dev; mount is a no-op
 # then. Registered last so /api/* and /ws/* are always matched first.
 _base_dir = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent.parent

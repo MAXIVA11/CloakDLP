@@ -2,7 +2,7 @@ namespace CloakDlp.Agent.Detection;
 
 public sealed record FingerprintReference(string DatasetId, string PolicyId, string Name, string CtphHash);
 
-// Not an IDetector — fingerprinting compares whole-document byte content against reference
+// Not an IDetector; fingerprinting compares whole-document byte content against reference
 // hashes rather than scanning text for patterns, so it operates on raw bytes, not a decoded
 // string, and reports at most one match per reference per scan (a similarity score, not a
 // count of pattern occurrences).

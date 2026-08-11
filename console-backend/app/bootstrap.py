@@ -19,7 +19,7 @@ def ensure_default_policy() -> None:
             name=DEFAULT_POLICY_NAME,
             description=(
                 "Flags every time a credit card number is entered or transmitted, on any "
-                "channel. Never blocks — this is an awareness tool, not an enforcement one."
+                "channel. Never blocks; this is an awareness tool, not an enforcement one."
             ),
             data_type=DataType.credit_card,
             detection_method=DetectionMethod.regex,

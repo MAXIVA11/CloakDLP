@@ -1,11 +1,11 @@
-"""Context-Triggered Piecewise Hashing (CTPH) — a from-scratch fuzzy hash, algorithmically in
+"""Context-Triggered Piecewise Hashing (CTPH); a from-scratch fuzzy hash, algorithmically in
 the spirit of ssdeep/TLSH but not binary-compatible with either. Small edits (insertions,
 deletions, reformatting) only perturb the signature characters near the edit, not the whole
 hash, so similarity between two hashes degrades gracefully instead of falling off a cliff the
 way a cryptographic hash's would.
 
 This exact spec (window size, trigger rule, alphabet, block-size formula) is reimplemented
-in the agent (agent/CloakDlp.Agent/Detection/Ctph.cs) — the two MUST stay in lockstep, or a
+in the agent (agent/CloakDlp.Agent/Detection/Ctph.cs); the two MUST stay in lockstep, or a
 hash produced by one side becomes meaningless to the other. See ARCHITECTURE.md.
 """
 
@@ -60,7 +60,7 @@ def _signature(data: bytes, block_size: int) -> str:
 
 
 def hash_bytes(data: bytes) -> str:
-    """Returns "blockSize:sigAtB:sigAt2B". Callers should discard `data` immediately after —
+    """Returns "blockSize:sigAtB:sigAt2B". Callers should discard `data` immediately after -
     this is a one-way fuzzy digest, not a copy of the content."""
     if not data:
         return f"{MIN_BLOCK_SIZE}::"

@@ -1,7 +1,12 @@
+import io
 import socket
+import sys
+import zipfile
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.bootstrap import DEFAULT_POLICY_NAME
@@ -24,7 +29,7 @@ router = APIRouter(prefix="/api/agents", tags=["agents"])
 
 # An agent that hasn't heartbeaten within this window reads as offline, regardless of what its
 # last-persisted `status` says. `status` only ever gets set to "online" (on heartbeat) and never
-# flips back on its own if the process dies or the extension gets uninstalled — recency is the
+# flips back on its own if the process dies or the extension gets uninstalled; recency is the
 # only signal that's actually trustworthy.
 ONLINE_THRESHOLD = timedelta(minutes=10)
 
@@ -79,7 +84,7 @@ def list_agents(db: Session = Depends(get_db)):
 
 def _pick_representative(db: Session, kind: AgentKind) -> Agent | None:
     # Prefer whichever agent of this kind is actually reporting in (most recent heartbeat) over
-    # whichever happens to have the newest row — a stale manually-registered test/junk agent
+    # whichever happens to have the newest row; a stale manually-registered test/junk agent
     # with no heartbeat shouldn't outrank the real one just because it was created later.
     return (
         db.query(Agent)
@@ -91,7 +96,7 @@ def _pick_representative(db: Session, kind: AgentKind) -> Agent | None:
 
 @router.get("/workstation", response_model=WorkstationStatus, dependencies=[Depends(get_current_user)])
 def workstation_status(db: Session = Depends(get_db)):
-    """CloakDLP only ever runs on one machine per install — the console binds to loopback, so
+    """CloakDLP only ever runs on one machine per install; the console binds to loopback, so
     there's no such thing as a 'fleet' here. This collapses the two independent reporters (the
     desktop agent and the browser extension) into a single per-workstation view instead of
     making the user reconcile a table of oddly-named rows themselves."""
@@ -112,7 +117,7 @@ def delete_agent(agent_id: str, db: Session = Depends(get_db)):
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
     # Incident.agent_id is NOT NULL, and incident history is the one thing this whole app
-    # exists to preserve — silently nulling it out (SQLAlchemy's default when a relationship
+    # exists to preserve; silently nulling it out (SQLAlchemy's default when a relationship
     # has no cascade configured) would just crash with an IntegrityError, and cascading the
     # delete would destroy real incident history for a merely-stale agent record. Neither is
     # acceptable, so this blocks with a clear reason instead.
@@ -151,11 +156,51 @@ def extension_status(db: Session = Depends(get_db)):
     return ExtensionStatus(installed=installed, store_url=settings.extension_store_url)
 
 
+def _extension_zip_path() -> Path | None:
+    # installer/build.ps1 puts the prebuilt zip at ..\extension\ next to console\, agent\,
+    # tray\ under Program Files; a sibling of the directory the packaged exe runs from.
+    base_dir = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parents[2]
+    packaged = base_dir.parent / "extension" / "CloakDLP-browser-extension.zip"
+    return packaged if packaged.is_file() else None
+
+
+def _extension_source_dir() -> Path | None:
+    # Dev fallback: the repo's own browser-extension/ directory, zipped on the fly, so this
+    # endpoint works without running the packaging script first.
+    base_dir = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parents[2]
+    source = base_dir.parent / "browser-extension"
+    return source if source.is_dir() else None
+
+
+@router.get("/extension-download", dependencies=[Depends(require_loopback)])
+def extension_download():
+    # Loopback-only rather than user-authenticated: this is a plain <a href download> link, and
+    # simple link navigation doesn't carry the Authorization header a fetch() call would. The
+    # payload is just the extension's own public source, nothing sensitive; same trust
+    # boundary as everything else that's loopback-gated for zero-friction access.
+    zip_path = _extension_zip_path()
+    if zip_path is not None:
+        return FileResponse(zip_path, media_type="application/zip", filename="CloakDLP-browser-extension.zip")
+
+    source_dir = _extension_source_dir()
+    if source_dir is None:
+        raise HTTPException(status_code=404, detail="Extension source not found")
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for path in source_dir.rglob("*"):
+            if path.is_file():
+                zf.write(path, path.relative_to(source_dir))
+    buffer.seek(0)
+    headers = {"Content-Disposition": 'attachment; filename="CloakDLP-browser-extension.zip"'}
+    return StreamingResponse(buffer, media_type="application/zip", headers=headers)
+
+
 @router.post("/self-register", response_model=AgentRegisterOut, dependencies=[Depends(require_loopback)])
 def self_register_agent(payload: AgentRegister, db: Session = Depends(get_db)):
     """Zero-config pairing: the agent calls this on first startup instead of requiring an
     operator to register it from the console and paste an API key into a config file. Loopback
-    only — only something running on this same machine can reach it, which is also why the
+    only; only something running on this same machine can reach it, which is also why the
     hostname it registers under is computed here rather than trusted from the payload: self-
     register is always called from this machine, by definition, so the desktop agent and the
     browser extension both land on the console's own hostname and group together as one

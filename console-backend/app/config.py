@@ -6,8 +6,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 def _data_dir() -> Path:
-    # Packaged (frozen) deployments write next to nothing predictable via CWD — a Windows
-    # Service's working directory isn't guaranteed — so use a fixed, writable location instead.
+    # Packaged (frozen) deployments write next to nothing predictable via CWD; a Windows
+    # Service's working directory isn't guaranteed; so use a fixed, writable location instead.
     if getattr(sys, "frozen", False):
         import os
 
@@ -18,7 +18,7 @@ def _data_dir() -> Path:
 
 
 def _default_jwt_secret() -> str:
-    # Never ship a hardcoded default secret in a packaged build — forgeable auth tokens.
+    # Never ship a hardcoded default secret in a packaged build; forgeable auth tokens.
     # Generate one on first run and persist it so restarts keep working sessions valid.
     secret_path = _data_dir() / "jwt_secret.key"
     if secret_path.exists():
@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000"]
     host: str = "127.0.0.1"
     port: int = 8123
-    # Set once the browser extension is actually published (see browser-extension/README.md) —
+    # Set once the browser extension is actually published (see browser-extension/README.md) -
     # left blank until then so the console doesn't point people at a store listing that isn't
     # live yet. The install prompt only renders when this is non-empty.
     extension_store_url: str = ""
