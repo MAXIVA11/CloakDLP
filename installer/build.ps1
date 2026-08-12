@@ -4,7 +4,10 @@
   Builds CloakDLP-Setup.msi: static-exports the console frontend, packages the console backend
   as a standalone exe (PyInstaller), publishes the agent and tray notifier as self-contained
   exes, downloads WinSW to wrap the backend as a Windows service, zips the browser extension
-  source for store submission, and builds the MSI with WiX.
+  source for store submission, and builds the MSI with WiX. Each of the three exes CloakDLP
+  itself builds, plus the final MSI, is signed via sign.ps1 - a no-op unless SignPath is
+  configured (see sign.ps1's own header), so this still produces an unsigned build locally
+  without any SignPath account.
 
 .NOTES
   Requires: Node/npm, Python (with console-backend/.venv already created and
@@ -47,6 +50,7 @@ Remove-Item -Recurse -Force build, dist -ErrorAction SilentlyContinue
     --collect-data whois `
     run_server.py
 Pop-Location
+& "$PSScriptRoot\sign.ps1" -FilePath "$root\console-backend\dist\CloakDLP-Console.exe"
 
 # 3. Agent self-contained publish
 Step "Publishing agent (self-contained single-file)"
@@ -55,6 +59,7 @@ Remove-Item -Recurse -Force publish -ErrorAction SilentlyContinue
 dotnet publish -c Release -r win-x64 --self-contained true `
     -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
 Pop-Location
+& "$PSScriptRoot\sign.ps1" -FilePath "$root\agent\CloakDlp.Agent\publish\CloakDlp.Agent.exe"
 
 # 4. Tray notifier self-contained publish
 Step "Publishing tray notifier (self-contained single-file)"
@@ -63,8 +68,11 @@ Remove-Item -Recurse -Force publish -ErrorAction SilentlyContinue
 dotnet publish -c Release -r win-x64 --self-contained true `
     -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
 Pop-Location
+& "$PSScriptRoot\sign.ps1" -FilePath "$root\agent\CloakDlp.Tray\publish\CloakDlp.Tray.exe"
 
-# 5. WinSW (wraps the backend exe as a real Windows service - see ARCHITECTURE.md)
+# 5. WinSW (wraps the backend exe as a real Windows service - see ARCHITECTURE.md). Third-party,
+#    prebuilt, and already signed upstream under its own project's identity - never resigned or
+#    modified here, same as any vendored dependency.
 Step "Fetching WinSW service wrapper"
 $winswPath = Join-Path $installerDir "WinSW-x64.exe"
 if (-not (Test-Path $winswPath)) {
@@ -109,5 +117,11 @@ wix build CloakDLP.wxs -arch x64 `
     -ext WixToolset.UI.wixext/5.0.2 -ext WixToolset.Util.wixext/5.0.2 `
     -out "$outDir\CloakDLP-Setup.msi"
 Pop-Location
+
+# 8. Sign the MSI itself too - the three exes inside it are already signed (steps 2-4), but the
+#    installer package that Windows/SmartScreen actually shows a publisher prompt for is this
+#    file, not what's inside it.
+Step "Signing MSI"
+& "$PSScriptRoot\sign.ps1" -FilePath "$outDir\CloakDLP-Setup.msi"
 
 Step "Done: installer\out\CloakDLP-Setup.msi"

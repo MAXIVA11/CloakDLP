@@ -65,6 +65,14 @@ EULA; v5 doesn't.)
 
 Output: `installer\out\CloakDLP-Setup.msi`.
 
+### Code signing
+
+`build.ps1` signs each of the three exes it produces (console, agent, tray) and the final MSI
+via [sign.ps1](sign.ps1), through [SignPath](https://signpath.io)'s free code-signing program
+for open-source projects. This is a no-op - the build still runs and produces an unsigned MSI,
+exactly as before - unless all five `SIGNPATH_*` environment variables sign.ps1 documents are
+set. Nothing about a local dev build changes unless you deliberately export those.
+
 ## Installing / uninstalling
 
 Run the MSI (needs admin elevation, like any service-installing MSI) and it's done; both
