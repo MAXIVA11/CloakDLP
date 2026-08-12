@@ -1,5 +1,6 @@
 export type Channel = "file" | "clipboard" | "print" | "network";
 export type Action = "block" | "flag" | "log";
+export type RiskThreshold = "low" | "medium" | "high";
 export type DetectionMethod = "regex" | "edm" | "fingerprint";
 export type DataType =
   | "credit_card"
@@ -19,6 +20,8 @@ export interface Policy {
   detection_method: DetectionMethod;
   channels: Channel[];
   action: Action;
+  // Only meaningful when action === "block"; null means block on any match regardless of risk.
+  risk_threshold: RiskThreshold | null;
   target_scope: Record<string, unknown>;
   enabled: boolean;
   simulate_mode: boolean;
@@ -36,6 +39,7 @@ export interface Incident {
   agent_id: string;
   channel: Channel;
   action_taken: Action;
+  blocked: boolean;
   confidence: number;
   redacted_snippet: string;
   rule_id: string;

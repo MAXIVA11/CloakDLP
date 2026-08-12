@@ -29,6 +29,12 @@ class Action(str, enum.Enum):
     log = "log"
 
 
+class RiskThreshold(str, enum.Enum):
+    low = "low"
+    medium = "medium"
+    high = "high"
+
+
 class DetectionMethod(str, enum.Enum):
     regex = "regex"
     edm = "edm"
@@ -84,6 +90,11 @@ class Policy(Base):
     detection_method: Mapped[DetectionMethod] = mapped_column(Enum(DetectionMethod))
     channels: Mapped[list] = mapped_column(JSON, default=list)  # list[Channel value]
     action: Mapped[Action] = mapped_column(Enum(Action))
+    # Only meaningful when action == block: narrows blocking to matches whose channel carries a
+    # resolvable domain (network-channel traffic, including the browser extension, which also
+    # reports as "network") AND whose domain risk score meets this bar. None means block on any
+    # match, regardless of risk - the original, unconditional meaning of a block policy.
+    risk_threshold: Mapped[RiskThreshold | None] = mapped_column(Enum(RiskThreshold), nullable=True)
     target_scope: Mapped[dict] = mapped_column(JSON, default=dict)  # {"users": [...], "groups": [...], "devices": [...]}
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     simulate_mode: Mapped[bool] = mapped_column(Boolean, default=True)
