@@ -10,6 +10,13 @@ public sealed class AgentConfig
     // agent an API key; the operator copies each relevant policy's id in here per data type).
     public Dictionary<string, string> PolicyIdsByDataType { get; set; } = new();
 
+    // Set by AgentRuntime.LoadConfigAsync, true only when AgentId/ApiKey came from self-register
+    // (appsettings.json left them blank), never when an operator hand-configured them. Gates
+    // whether HeartbeatLoopAsync is allowed to overwrite PolicyIdsByDataType["credit_card"] with
+    // whatever the console's current default is: doing that for a manually-paired agent would
+    // silently stomp an operator's deliberate PolicyIdsByDataType entry every couple of minutes.
+    public bool IsZeroConfigPairing { get; set; }
+
     // Local port the network-egress proxy listens on. Point a browser's proxy settings at it.
     public int ProxyPort { get; set; } = 8888;
 
