@@ -1,0 +1,130 @@
+name: Build
+
+# Runs the exact same installer\build.ps1 a maintainer runs locally, on GitHub's own
+# infrastructure, so the release artifact comes from an auditable, reproducible pipeline instead
+# of a maintainer's laptop. Toolchain versions here are pinned to match this project's actual
+# dev environment (see console-backend/.venv, agent/*/*.csproj TargetFramework, node --version),
+# not arbitrary defaults.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Create Python venv and install backend dependencies
+        working-directory: console-backend
+        run: |
+          python -m venv .venv
+          .venv\Scripts\python.exe -m pip install --upgrade pip
+          .venv\Scripts\python.exe -m pip install -r requirements.txt
+
+      - name: Install WiX CLI
+        run: |
+          dotnet tool install --global wix --version 5.0.2
+          wix extension add --global WixToolset.UI.wixext/5.0.2
+          wix extension add --global WixToolset.Util.wixext/5.0.2
+
+      # Unsigned unless the five SIGNPATH_* repo secrets are set (see installer/sign.ps1) - a PR
+      # from a fork, or this repo before SignPath approval, still builds a valid unsigned MSI
+      # exactly like a local run does. Secrets are never exposed to fork PRs by GitHub itself,
+      # which is the correct default here: only builds triggered from this repo directly should
+      # ever be able to sign.
+      - name: Build installer
+        working-directory: installer
+        env:
+          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+          SIGNPATH_ORGANIZATION_ID: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          SIGNPATH_PROJECT_SLUG: ${{ secrets.SIGNPATH_PROJECT_SLUG }}
+          SIGNPATH_SIGNING_POLICY_SLUG: ${{ secrets.SIGNPATH_SIGNING_POLICY_SLUG }}
+          SIGNPATH_ARTIFACT_CONFIG_SLUG: ${{ secrets.SIGNPATH_ARTIFACT_CONFIG_SLUG }}
+        run: .\build.ps1
+
+      - name: Validate MSI
+        working-directory: installer
+        run: wix msi validate out\CloakDLP-Setup.msi
+
+      # windows-latest runners execute as a user already in Administrators, so msiexec /qn here
+      # doesn't hit a UAC consent prompt the way an interactive desktop install would - there's
+      # no interactive session for Windows to ask consent on. This only proves the MSI installs,
+      # registers both services, and uninstalls cleanly; it can't exercise anything that needs a
+      # real interactive session (clipboard access, the tray icon, a live UAC-elevated install)
+      # the way manual testing on a real desktop does.
+      - name: Smoke test install and uninstall
+        shell: pwsh
+        run: |
+          $proc = Start-Process msiexec.exe -ArgumentList "/i", "installer\out\CloakDLP-Setup.msi", "/qn", "/l*v", "install.log" -Wait -PassThru
+          if ($proc.ExitCode -ne 0) {
+            Get-Content install.log -Tail 60
+            throw "Install failed with exit code $($proc.ExitCode)"
+          }
+
+          Start-Sleep -Seconds 5
+          $services = Get-Service -Name CloakDLPConsole, CloakDLPAgent -ErrorAction Stop
+          foreach ($svc in $services) {
+            if ($svc.Status -ne "Running") { throw "$($svc.Name) is not running: $($svc.Status)" }
+          }
+          Write-Host "Services confirmed running: $($services.Name -join ', ')"
+
+          $found = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" |
+            Where-Object { $_.DisplayName -like "*CloakDLP*" }
+          if (-not $found) { throw "CloakDLP not found in Add/Remove Programs after install" }
+
+          $proc2 = Start-Process msiexec.exe -ArgumentList "/x", $found.PSChildName, "/qn", "/l*v", "uninstall.log" -Wait -PassThru
+          if ($proc2.ExitCode -ne 0) {
+            Get-Content uninstall.log -Tail 60
+            throw "Uninstall failed with exit code $($proc2.ExitCode)"
+          }
+          Write-Host "Uninstall completed cleanly."
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CloakDLP-Setup
+          path: installer/out/CloakDLP-Setup.msi
+          if-no-files-found: error
+
+  # Only on a version tag push (v1.2.3): attaches the just-built MSI to a *draft* release rather
+  # than publishing automatically. Release notes here are written by hand, case by case, matching
+  # what happened in that build - that's a deliberate editorial step, not something to template
+  # out, so this stops short of that and leaves the draft for a human to finish and publish.
+  draft-release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: CloakDLP-Setup
+          path: out
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" out\CloakDLP-Setup.msi `
+            --repo "${{ github.repository }}" `
+            --draft `
+            --title "CloakDLP ${{ github.ref_name }}" `
+            --notes "Draft release from CI - write real release notes and publish manually."
