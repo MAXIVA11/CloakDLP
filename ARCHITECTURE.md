@@ -132,9 +132,10 @@ loopback by default anyway:
   whatever credentials come back (`%ProgramData%\CloakDLP\agent_credentials.json` for the
   agent; `chrome.storage.local` for the extension).
 - **Default policy**: the console auto-creates a "Credit Card Entry" policy (`app/bootstrap.py`)
-  on first startup if none exists, flag-only, `simulate_mode=true`; never blocks, since this is
-  an awareness tool, not an enforcement one, and blocking someone's own checkout would be
-  actively harmful.
+  on first startup if none exists, flag-only, `simulate_mode=true` - starts as an awareness tool,
+  not an enforcement one, since blocking someone's own checkout out of the box would be actively
+  harmful. Switching it to Block (with simulate mode off) makes it a real enforcement policy; see
+  "Blocking" below.
 - **Pairing responses include the right policy id** (`default_credit_card_policy_id` on both
   register endpoints) so a fresh agent or extension install doesn't need a second round-trip or
   any console-side lookup to know what to report against.
@@ -155,6 +156,43 @@ already-visible row fills in live:
 
 Both sources were chosen specifically because they need no account, no API key, no paid tier -
 consistent with everything else in this project that's been kept to "works out of the box."
+
+### Blocking
+
+`Policy.action` has always had a `block` value and the policy editor has always let you pick it,
+but for a long time nothing actually enforced it - every channel just detected, redacted, and
+reported, then let the content through regardless. The channels only ever carry a `policy_id`,
+not the policy's own `action`/`simulate_mode`, and trusting a client-reported "yes I blocked
+this" would mean the client decides what happened, which is both meaningless (every channel used
+to just hardcode a fixed `action_taken` value) and the wrong place to decide it - policy config
+can change at any moment, with nothing telling an already-running channel its cached copy is
+stale.
+
+So the decision is made once, server-side, on every incident: `routers/incidents.py::
+_effective_action` looks up the policy fresh and computes the real `action_taken` - `block` only
+when the policy says block AND `simulate_mode` is off (simulate softens a real block down to
+`flag`: still visible in the Incidents feed, never enforced). `Incident.blocked` is just
+`action_taken == block`, exposed on `IncidentOut` so the channel that reported the match gets a
+synchronous, authoritative answer back in the same response, and can act immediately:
+
+| Channel | What "blocked" does | Where |
+|---|---|---|
+| Clipboard | `EmptyClipboard()` right after reporting | `CloakDlp.Tray`'s `ClipboardMonitor.OnClipboardChanged` |
+| Print | `SetJob(..., JOB_CONTROL_CANCEL)` on the job | `PrintMonitor.ScanNewJobsAsync` |
+| Network proxy | Returns `403` instead of calling `ForwardAsync` | `NetworkProxyMonitor.HandleConnectionAsync` |
+| Browser extension | `preventDefault()` + `stopImmediatePropagation()` on the form's `submit` event, only resubmitted (via `form.submit()`, which - unlike `requestSubmit()` - doesn't redispatch `submit` and can't loop back into the same listener) if the answer comes back not-blocked | `content.js`'s submit listener |
+
+Every enforcement point fails open, not closed: a console that's unreachable, a network error, or
+any other failure along the way is treated as not-blocked, matching the "best-effort, no local
+queue/retry" posture everywhere else in this project. A DLP tool that occasionally misses a
+report is a much smaller problem than one that silently starts eating a real form submission,
+print job, or clipboard paste because its own backend happened to be down.
+
+The browser extension's blocking is real but scoped to actual `<form>` submissions with a native
+`submit` event - a checkout flow that reads field values and calls `fetch()`/`XHR` directly, with
+no form or submit event involved at all, has nothing here to intercept (the typing-time listener
+still reports it; nothing can stop it). Full coverage of that would mean patching
+`window.fetch`/`XMLHttpRequest` globally, a much larger and riskier change than what's here.
 
 ### Browser extension: what was tried, and why it isn't a TLS-intercepting proxy
 

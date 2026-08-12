@@ -38,8 +38,10 @@ Nothing to configure by hand:
 - **Agent pairing**: the agent service self-registers with the console on first startup and
   persists its credentials under `%ProgramData%\CloakDLP\`; no API key to copy anywhere. See
   `POST /api/agents/self-register`.
-- **Default policy**: the console auto-creates a "Credit Card Entry" policy (flag, never block)
-  on first startup if none exists; detection works the moment both services are running.
+- **Default policy**: the console auto-creates a "Credit Card Entry" policy on first startup if
+  none exists (flag-only, out of the box); detection works the moment both services are running.
+  Switch it to Block (and turn off Simulate mode) in the console to actually clear the clipboard,
+  cancel the print job, reject the network request, or block the form submission.
 - **Browser extension**: not auto-installed (see above); the console's Overview page shows a
   one-click "Install extension" prompt once `EXTENSION_STORE_URL` is configured post-publish.
 

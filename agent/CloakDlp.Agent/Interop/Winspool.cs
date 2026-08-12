@@ -6,6 +6,7 @@ internal static class Winspool
 {
     public const uint PRINTER_CHANGE_ADD_JOB = 0x00000100;
     public const uint PRINTER_NOTIFY_OPTIONS_REFRESH = 0x1;
+    public const uint JOB_CONTROL_CANCEL = 3;
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     public struct JOB_INFO_1
@@ -59,6 +60,9 @@ internal static class Winspool
 
     [DllImport("winspool.drv", SetLastError = true, CharSet = CharSet.Unicode)]
     public static extern bool EnumJobs(nint hPrinter, uint firstJob, uint noJobs, uint level, nint pJob, uint cbBuf, out uint pcbNeeded, out uint pcReturned);
+
+    [DllImport("winspool.drv", SetLastError = true, CharSet = CharSet.Unicode)]
+    public static extern bool SetJob(nint hPrinter, uint jobId, uint level, nint pJob, uint command);
 
     [DllImport("winspool.drv", SetLastError = true, CharSet = CharSet.Unicode)]
     public static extern int StartDocPrinter(nint hPrinter, uint level, ref DOC_INFO_1 pDocInfo);

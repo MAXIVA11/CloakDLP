@@ -136,6 +136,14 @@ class Incident(Base):
     policy: Mapped["Policy"] = relationship(back_populates="incidents")
     agent: Mapped["Agent"] = relationship(back_populates="incidents")
 
+    @property
+    def blocked(self) -> bool:
+        # action_taken is always the server-computed effective action (see
+        # routers/incidents.py::_effective_action) - "block" only appears here when the
+        # matching policy actually says to block AND isn't in simulate mode, so this is a
+        # plain derived flag, not a second source of truth to keep in sync.
+        return self.action_taken == Action.block
+
 
 class EdmDataset(Base):
     __tablename__ = "edm_datasets"

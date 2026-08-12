@@ -74,7 +74,7 @@ async Task<int> RunScanAsync(string filePath)
     var fullPath = Path.GetFullPath(filePath);
     foreach (var match in matches)
     {
-        if (await reporter.ReportAsync(match, "file", fullPath))
+        if ((await reporter.ReportAsync(match, "file", fullPath)).Reported)
             reported++;
     }
 

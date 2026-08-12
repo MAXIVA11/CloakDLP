@@ -88,9 +88,36 @@ public sealed class ClipboardMonitor
         _lastSeenText = text;
 
         var matches = _pipeline.Scan(text);
+        var blocked = false;
         foreach (var match in matches)
         {
-            _reporter.ReportAsync(match, "clipboard", "clipboard").GetAwaiter().GetResult();
+            var result = _reporter.ReportAsync(match, "clipboard", "clipboard").GetAwaiter().GetResult();
+            blocked = blocked || result.Blocked;
+        }
+
+        // Clearing here fires another WM_CLIPBOARDUPDATE, but TryReadClipboardText() returns
+        // null once the format is gone (EmptyClipboard removes it entirely), so OnClipboardChanged
+        // just returns early next time around - no risk of looping on our own clear. Also reset
+        // _lastSeenText: otherwise copying the exact same blocked value again later would be
+        // silently swallowed by the dedupe check above instead of being detected and blocked
+        // again.
+        if (blocked)
+        {
+            ClearClipboard();
+            _lastSeenText = null;
+        }
+    }
+
+    private static void ClearClipboard()
+    {
+        if (!User32.OpenClipboard(0)) return;
+        try
+        {
+            User32.EmptyClipboard();
+        }
+        finally
+        {
+            User32.CloseClipboard();
         }
     }
 

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.database import SessionLocal, get_db
 from app.deps import get_current_agent, get_current_user
-from app.models import Agent, Incident
+from app.models import Action, Agent, Incident, Policy
 from app.risk_scoring import score_domain
 from app.schemas import IncidentCreate, IncidentOut, IncidentStatusUpdate
 from app.websocket_manager import incident_manager
@@ -63,6 +63,22 @@ async def _score_domain_and_update(incident_id: str, domain: str) -> None:
     await incident_manager.broadcast_json({"type": "incident.updated", "incident": out.model_dump()})
 
 
+def _effective_action(policy: Policy | None) -> Action:
+    """The channels (browser extension, desktop agent) don't know a policy's configured action
+    or simulate_mode - they only carry a policy_id, matching how EDM/fingerprint bindings work.
+    Trusting a client-supplied action_taken would mean the client itself decides what happened,
+    which is both meaningless (every channel used to just hardcode "flag"/"log") and the wrong
+    place to decide it: policy config can change without every client's cached copy noticing.
+    This is the single source of truth, computed fresh on every incident. simulate_mode softens
+    a real block down to a flag - reported and visible, but not enforced - matching the policy
+    editor's own "log matches without blocking" description."""
+    if policy is None:
+        return Action.log
+    if policy.action == Action.block:
+        return Action.block if not policy.simulate_mode else Action.flag
+    return policy.action
+
+
 @router.post("", response_model=IncidentOut, status_code=201)
 async def create_incident(
     payload: IncidentCreate,
@@ -70,7 +86,10 @@ async def create_incident(
     agent: Agent = Depends(get_current_agent),
     db: Session = Depends(get_db),
 ):
-    incident = Incident(agent_id=agent.id, **payload.model_dump())
+    policy = db.get(Policy, payload.policy_id)
+    data = payload.model_dump()
+    data["action_taken"] = _effective_action(policy)
+    incident = Incident(agent_id=agent.id, **data)
     db.add(incident)
     db.commit()
     db.refresh(incident)
