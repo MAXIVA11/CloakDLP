@@ -2,7 +2,17 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr
 
-from app.models import Action, AgentKind, AgentStatus, Channel, DataType, DetectionMethod, EdmFieldType, IncidentStatus
+from app.models import (
+    Action,
+    AgentKind,
+    AgentStatus,
+    Channel,
+    DataType,
+    DetectionMethod,
+    EdmFieldType,
+    IncidentStatus,
+    RiskThreshold,
+)
 
 
 # --- Auth ---
@@ -38,6 +48,8 @@ class PolicyBase(BaseModel):
     detection_method: DetectionMethod
     channels: list[Channel]
     action: Action
+    # Only meaningful when action == block; see Policy.risk_threshold in models.py.
+    risk_threshold: RiskThreshold | None = None
     target_scope: dict = {}
     enabled: bool = True
     simulate_mode: bool = True
@@ -56,6 +68,7 @@ class PolicyUpdate(BaseModel):
     detection_method: DetectionMethod | None = None
     channels: list[Channel] | None = None
     action: Action | None = None
+    risk_threshold: RiskThreshold | None = None
     target_scope: dict | None = None
     enabled: bool | None = None
     simulate_mode: bool | None = None

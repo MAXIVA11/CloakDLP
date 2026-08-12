@@ -31,6 +31,7 @@ import type {
   Incident,
   Policy,
   PolicyInput,
+  RiskThreshold,
 } from "@/lib/types";
 
 const DETECTION_METHOD_BY_DATA_TYPE: Record<DataType, DetectionMethod> = {
@@ -61,6 +62,7 @@ function emptyForm(): PolicyInput {
     detection_method: "regex",
     channels: ["file"],
     action: "log",
+    risk_threshold: null,
     target_scope: {},
     enabled: true,
     simulate_mode: true,
@@ -223,6 +225,33 @@ export function PolicyEditorDialog({
               </Select>
             </div>
           </div>
+
+          {form.action === "block" && (
+            <div className="flex flex-col gap-1.5">
+              <Label>Only block when domain risk is at least</Label>
+              <Select
+                value={form.risk_threshold ?? "any"}
+                onValueChange={(v) =>
+                  setForm((f) => ({ ...f, risk_threshold: v === "any" ? null : (v as RiskThreshold) }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="any">Any (block on every match)</SelectItem>
+                  <SelectItem value="low">Low or higher</SelectItem>
+                  <SelectItem value="medium">Medium or higher</SelectItem>
+                  <SelectItem value="high">High only</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Only applies to matches with a domain to score (network traffic, including the
+                browser extension). A match with no domain - clipboard, print, a file path - is
+                flagged instead of blocked, since there's nothing to score.
+              </p>
+            </div>
+          )}
 
           {form.data_type === "edm_dataset" && (
             <div className="flex flex-col gap-1.5">
