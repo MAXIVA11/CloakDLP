@@ -36,8 +36,15 @@ Push-Location (Join-Path $root "console-backend")
 if (-not (Test-Path ".venv")) { throw "console-backend\.venv not found - create it and pip install -r requirements.txt first." }
 & ".venv\Scripts\python.exe" -m pip install --quiet pyinstaller
 Remove-Item -Recurse -Force build, dist -ErrorAction SilentlyContinue
+# --collect-data whois: the python-whois package ships data/public_suffix_list.dat, needed at
+# runtime to parse domain WHOIS records correctly. PyInstaller's default analysis only bundles
+# Python code, not a package's own data files, so without this every WHOIS lookup in the packaged
+# exe fails with FileNotFoundError (confirmed live: every single risk score came back "unknown",
+# every time, in every build up through v0.7.0 - the interactive `dotnet`/dev-mode testing never
+# caught it because it always ran against the unpackaged .venv, where the file is just on disk).
 & ".venv\Scripts\python.exe" -m PyInstaller --onefile --name CloakDLP-Console --distpath dist --workpath build --clean `
     --hidden-import passlib.handlers.bcrypt `
+    --collect-data whois `
     run_server.py
 Pop-Location
 
