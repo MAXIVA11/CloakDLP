@@ -43,7 +43,7 @@ def _is_online(agent: Agent) -> bool:
     return datetime.now(timezone.utc) - last < ONLINE_THRESHOLD
 
 
-def _agent_out(agent: Agent) -> AgentOut:
+def _agent_out(agent: Agent, db: Session) -> AgentOut:
     return AgentOut(
         id=agent.id,
         hostname=agent.hostname,
@@ -52,6 +52,12 @@ def _agent_out(agent: Agent) -> AgentOut:
         kind=agent.kind,
         policy_version=agent.policy_version,
         last_heartbeat=agent.last_heartbeat,
+        # Lets a paired client (desktop agent, browser extension) notice a policy change without
+        # ever re-registering: self-register only runs once, at first pairing, so a client that
+        # cached the policy id it got back then would otherwise never learn the console's
+        # current default changed - disabled, replaced, or just edited - no matter how long it
+        # stayed paired. Every heartbeat carries the live answer instead.
+        default_credit_card_policy_id=_default_credit_card_policy_id(db),
     )
 
 
@@ -79,7 +85,7 @@ def _default_credit_card_policy_id(db: Session) -> str | None:
 @router.get("", response_model=list[AgentOut], dependencies=[Depends(get_current_user)])
 def list_agents(db: Session = Depends(get_db)):
     agents = db.query(Agent).order_by(Agent.hostname).all()
-    return [_agent_out(a) for a in agents]
+    return [_agent_out(a, db) for a in agents]
 
 
 def _pick_representative(db: Session, kind: AgentKind) -> Agent | None:
@@ -238,4 +244,4 @@ def heartbeat(
         agent.policy_version = payload.policy_version
     db.commit()
     db.refresh(agent)
-    return _agent_out(agent)
+    return _agent_out(agent, db)

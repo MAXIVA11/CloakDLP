@@ -29,7 +29,12 @@ async function selfRegister() {
 
 async function getCredentials() {
   const stored = await chrome.storage.local.get(["agentId", "apiKey", "policyId"]);
-  if (stored.agentId && stored.apiKey && stored.policyId) return stored;
+  // policyId alone is not a sign of being unpaired: heartbeat() below can legitimately set it to
+  // null (the console currently has no enabled credit-card policy at all), and treating that as
+  // "not paired yet" would re-self-register on every single incident report from then on,
+  // needlessly reissuing a fresh API key each time. Only agentId/apiKey being present means
+  // pairing has actually happened.
+  if (stored.agentId && stored.apiKey) return stored;
   return selfRegister();
 }
 
@@ -44,7 +49,7 @@ const HEARTBEAT_ALARM = "cloakdlp-heartbeat";
 async function heartbeat() {
   try {
     const creds = await getCredentials();
-    await fetch(`${CONSOLE_URL}/api/agents/heartbeat`, {
+    const res = await fetch(`${CONSOLE_URL}/api/agents/heartbeat`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -53,6 +58,18 @@ async function heartbeat() {
       },
       body: JSON.stringify({ policy_version: "extension-v1" }),
     });
+    if (!res.ok) return;
+
+    // Self-register only ever runs once, at first pairing; without this, a policy change made
+    // in the console later (disabled, replaced, edited) would never reach an already-paired
+    // extension - it would keep reporting against whatever policy id it happened to cache that
+    // first time, forever. Every heartbeat carries the console's current answer instead, so
+    // this converges within one heartbeat interval (currently 5 minutes) of any policy change.
+    const data = await res.json();
+    const newPolicyId = data.default_credit_card_policy_id ?? null;
+    if (newPolicyId !== creds.policyId) {
+      await chrome.storage.local.set({ policyId: newPolicyId });
+    }
   } catch {
     // console not running yet; fine, we'll try again next alarm or the next card detection
   }

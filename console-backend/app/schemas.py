@@ -106,6 +106,11 @@ class AgentOut(BaseModel):
     kind: AgentKind
     policy_version: str
     last_heartbeat: datetime | None
+    # Computed fresh by _agent_out() on every call, not persisted on Agent itself. The heartbeat
+    # response is what actually matters here - it's how a paired client learns the console's
+    # current default policy changed; list_agents() gets the same value along for free but the
+    # console UI doesn't use it.
+    default_credit_card_policy_id: str | None = None
 
 
 class AgentHeartbeat(BaseModel):

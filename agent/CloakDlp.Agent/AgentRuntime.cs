@@ -25,6 +25,12 @@ public static class AgentRuntime
 
         if (string.IsNullOrWhiteSpace(config.AgentId) || string.IsNullOrWhiteSpace(config.ApiKey))
         {
+            // Everything in this branch pairs via self-register, one way or another; gates
+            // HeartbeatLoopAsync's policy-id refresh so it never overwrites an operator's own
+            // manually-configured PolicyIdsByDataType (appsettings.json with AgentId/ApiKey
+            // already filled in skips this whole branch, leaving the flag false).
+            config.IsZeroConfigPairing = true;
+
             var stored = AgentCredentialStore.Load();
 
             // A stored file written before DefaultCreditCardPolicyId existed (or one saved back
@@ -69,6 +75,28 @@ public static class AgentRuntime
         if (string.IsNullOrWhiteSpace(policyId)) return;
         if (!config.PolicyIdsByDataType.TryGetValue("credit_card", out var existing) || string.IsNullOrWhiteSpace(existing))
             config.PolicyIdsByDataType["credit_card"] = policyId;
+    }
+
+    // Every heartbeat carries the console's current default_credit_card_policy_id (see
+    // routers/agents.py::_agent_out); this is how a zero-config-paired agent ever learns that
+    // value changed after its one-time self-register - disabled, replaced, or edited - since
+    // nothing else ever prompts it to look again. Never runs for a manually-configured agent
+    // (IsZeroConfigPairing false): an operator's own PolicyIdsByDataType entry is deliberate and
+    // must never get silently overwritten by what the console happens to think the default is.
+    private static void RefreshCreditCardPolicyIfChanged(AgentConfig config, string? newPolicyId)
+    {
+        if (!config.IsZeroConfigPairing) return;
+
+        config.PolicyIdsByDataType.TryGetValue("credit_card", out var current);
+        if (newPolicyId == current) return;
+
+        if (string.IsNullOrWhiteSpace(newPolicyId))
+            config.PolicyIdsByDataType.Remove("credit_card");
+        else
+            config.PolicyIdsByDataType["credit_card"] = newPolicyId;
+
+        AgentCredentialStore.Save(config.AgentId, config.ApiKey, newPolicyId);
+        Console.WriteLine($"[pairing] console's credit-card policy changed; now using {newPolicyId ?? "(none configured)"}.");
     }
 
     private static async Task<(string AgentId, string ApiKey, string? DefaultCreditCardPolicyId)?> SelfRegisterAsync(string consoleUrl)
@@ -118,7 +146,8 @@ public static class AgentRuntime
         var pipeline = new DetectorPipeline(await LoadEdmDetectorsAsync(client, config));
         var fingerprintMatcher = new FingerprintMatcher(await LoadFingerprintReferencesAsync(client, config), config.FingerprintThreshold);
 
-        if (!await client.HeartbeatAsync("phase4-v1", ct))
+        var initialHeartbeat = await client.HeartbeatAsync("phase4-v1", ct);
+        if (!initialHeartbeat.Success)
         {
             // Stored credentials don't correspond to any agent the console currently knows
             // about (its database was reset, or this record was deleted); retrying the same
@@ -132,6 +161,7 @@ public static class AgentRuntime
             AgentCredentialStore.Clear();
             return;
         }
+        RefreshCreditCardPolicyIfChanged(config, initialHeartbeat.DefaultCreditCardPolicyId);
 
         Console.WriteLine(includeClipboard
             ? $"CloakDLP agent monitoring: clipboard, print, network (proxy on port {config.ProxyPort})."
@@ -145,7 +175,7 @@ public static class AgentRuntime
         {
             Task.Run(() => print.RunAsync(linkedCts.Token), linkedCts.Token),
             Task.Run(() => proxy.RunAsync(linkedCts.Token), linkedCts.Token),
-            Task.Run(() => HeartbeatLoopAsync(client, linkedCts), linkedCts.Token),
+            Task.Run(() => HeartbeatLoopAsync(client, config, linkedCts), linkedCts.Token),
         };
 
         if (includeClipboard)
@@ -168,7 +198,7 @@ public static class AgentRuntime
     // The console derives online/offline from heartbeat recency (10-minute window), not from a
     // one-shot flag; a heartbeat sent only once at startup would make a perfectly healthy,
     // days-old agent look offline. This keeps it fresh well inside that window.
-    private static async Task HeartbeatLoopAsync(ConsoleApiClient client, CancellationTokenSource cts)
+    private static async Task HeartbeatLoopAsync(ConsoleApiClient client, AgentConfig config, CancellationTokenSource cts)
     {
         var consecutiveFailures = 0;
         while (!cts.IsCancellationRequested)
@@ -176,8 +206,10 @@ public static class AgentRuntime
             try
             {
                 await Task.Delay(TimeSpan.FromMinutes(2), cts.Token);
-                if (await client.HeartbeatAsync("phase4-v1", cts.Token))
+                var result = await client.HeartbeatAsync("phase4-v1", cts.Token);
+                if (result.Success)
                 {
+                    RefreshCreditCardPolicyIfChanged(config, result.DefaultCreditCardPolicyId);
                     consecutiveFailures = 0;
                     continue;
                 }
