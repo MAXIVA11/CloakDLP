@@ -33,26 +33,65 @@
     return "*".repeat(digits.length - 4) + digits.slice(-4);
   }
 
-  function scanValue(value) {
-    if (!value || value.length < 13) return;
+  // Pure: returns every Luhn-valid card number found in a string, without side effects. Shared
+  // by the input-time (report only) and submit-time (report + maybe block) paths below.
+  function findCardNumbers(value) {
+    if (!value || value.length < 13) return [];
+    const found = [];
     let match;
     CANDIDATE_RE.lastIndex = 0;
     while ((match = CANDIDATE_RE.exec(value)) !== null) {
       const digits = match[0].replace(/\D/g, "");
       if (digits.length < 13 || digits.length > 19) continue;
       if (!luhnValid(digits)) continue;
+      found.push(digits);
+    }
+    return found;
+  }
 
+  function pageUrl() {
+    return window.location.origin + window.location.pathname;
+  }
+
+  // Fire-and-forget report while the user is still typing; nothing to hold up here, this is
+  // purely for visibility (and for catching values on forms that never actually get submitted).
+  function scanValue(value) {
+    for (const digits of findCardNumbers(value)) {
       const redacted = redactKeepLast4(digits);
       if (reportedThisPage.has(redacted)) continue;
       reportedThisPage.add(redacted);
-
-      chrome.runtime.sendMessage({
-        type: "card-entry-detected",
-        redactedSnippet: redacted,
-        domain: window.location.hostname,
-        pageUrl: window.location.origin + window.location.pathname,
-      });
+      chrome.runtime.sendMessage({ type: "card-entry-detected", redactedSnippet: redacted, pageUrl: pageUrl() });
     }
+  }
+
+  // Reports the same match again at submit time (yes, a second incident even if this exact
+  // value was already reported while typing) because that's the only way to get a fresh,
+  // authoritative block/no-block answer from the console - the policy backing it can change at
+  // any moment, so nothing about an earlier report is safe to reuse for this decision.
+  async function checkShouldBlock(digits) {
+    const redacted = redactKeepLast4(digits);
+    const response = await chrome.runtime.sendMessage({
+      type: "card-entry-submit-check",
+      redactedSnippet: redacted,
+      pageUrl: pageUrl(),
+    });
+    return response?.blocked === true;
+  }
+
+  function showBlockedWarning() {
+    // A card-input iframe (Stripe Elements etc.) is often just a few pixels tall - not a useful
+    // place to show a banner even though blocking itself still applies there. Only the top
+    // frame is worth decorating.
+    if (window.top !== window.self) return;
+    const banner = document.createElement("div");
+    banner.textContent = "CloakDLP blocked this submission: a credit card number was detected and this policy blocks it.";
+    banner.style.cssText =
+      "position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:2147483647;" +
+      "background:#1a1a1a;color:#fff;padding:12px 20px;border-radius:8px;" +
+      "font:14px/1.4 -apple-system,'Segoe UI',sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.35);" +
+      "max-width:90vw;text-align:center;";
+    document.body.appendChild(banner);
+    setTimeout(() => banner.remove(), 6000);
   }
 
   function isTextLikeInput(el) {
@@ -71,16 +110,54 @@
   );
 
   // Password managers / autofill often set .value programmatically without firing input events
-  // the same way a real keystroke would; a submit-time sweep catches those too.
+  // the same way a real keystroke would; a submit-time sweep catches those too - and this is
+  // also the actual enforcement point for blocking, since "let it through unless a live policy
+  // check says not to" only makes sense right before the data would actually leave.
+  //
+  // Deliberately NOT passive (unlike the input listener above): a passive listener physically
+  // cannot call preventDefault(), so it would be structurally incapable of blocking anything no
+  // matter what the policy says. Every matching field's card number gets an async block/no-block
+  // answer before the submission is allowed to proceed - preventDefault() fires synchronously,
+  // immediately, since that's the only point at which it's still legal to cancel the event; the
+  // async decision runs after, and either shows a warning (blocked) or replays the submission
+  // via form.submit() (not blocked). form.submit() is used specifically because, unlike
+  // form.requestSubmit(), it does not dispatch a new "submit" event - so this replay can't
+  // re-trigger this same listener and loop.
+  //
+  // Known gap: this only ever sees native <form> submissions. A checkout flow that reads field
+  // values and calls fetch()/XHR directly, with no <form> or submit event involved at all (common
+  // with some JS-heavy payment UIs), has nothing here to intercept - the input-time listener
+  // above still reports it, but nothing can block it. Full coverage would mean also patching
+  // window.fetch/XMLHttpRequest, a much larger change deliberately left out here.
   document.addEventListener(
     "submit",
     (event) => {
       const form = event.target;
       if (!(form instanceof HTMLFormElement)) return;
+
+      const matches = [];
       for (const el of form.elements) {
-        if (isTextLikeInput(el)) scanValue(el.value);
+        if (isTextLikeInput(el)) matches.push(...findCardNumbers(el.value));
       }
+      if (matches.length === 0) return;
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+
+      Promise.all(matches.map(checkShouldBlock))
+        .then((results) => {
+          if (results.some(Boolean)) {
+            showBlockedWarning();
+          } else {
+            form.submit();
+          }
+        })
+        // e.g. the extension context was invalidated by a reload mid-flight; the submission was
+        // already prevented above, so failing open here (rather than swallowing it) is what
+        // keeps this consistent with the "best-effort, never silently eats a real submission"
+        // posture the rest of the block-decision path relies on.
+        .catch(() => form.submit());
     },
-    { capture: true, passive: true },
+    { capture: true },
   );
 })();

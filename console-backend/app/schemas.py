@@ -138,6 +138,10 @@ class IncidentOut(BaseModel):
     agent_id: str
     channel: Channel
     action_taken: Action
+    # Derived from action_taken (== "block"); the channel that reported this incident reads
+    # this synchronously to decide whether to actually clear the clipboard, cancel the print
+    # job, reject the network request, or block the form submission.
+    blocked: bool
     confidence: float
     redacted_snippet: str
     rule_id: str

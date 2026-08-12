@@ -211,15 +211,18 @@ void HandleMessage(string json)
         var incident = root.GetProperty("incident");
         var channel = incident.GetProperty("channel").GetString() ?? "unknown";
         var snippet = incident.GetProperty("redacted_snippet").GetString() ?? "";
+        var actionTaken = incident.TryGetProperty("action_taken", out var actionProp) ? actionProp.GetString() : null;
+
+        var message = actionTaken switch
+        {
+            "block" => $"Blocked ({channel}): a credit card number was caught and stopped: {snippet}",
+            _ => $"A credit card number was just entered ({channel}): {snippet}",
+        };
 
         // ToolTipIcon.None (rather than .Warning) is deliberate: it stops Windows from
         // overlaying its own generic system warning triangle on top of the notification,
         // leaving the CloakDLP icon set on trayIcon.Icon above as the one actually shown.
-        trayIcon.ShowBalloonTip(
-            8000,
-            "CloakDLP",
-            $"A credit card number was just entered ({channel}): {snippet}",
-            ToolTipIcon.None);
+        trayIcon.ShowBalloonTip(8000, "CloakDLP", message, ToolTipIcon.None);
     }
     catch
     {

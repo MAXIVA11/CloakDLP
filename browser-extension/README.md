@@ -1,9 +1,15 @@
 # CloakDLP browser extension
 
-Watches text-like form fields as you type for a Luhn-valid credit card number and logs a
+Watches text-like form fields as you type for a Luhn-valid credit card number and reports a
 redacted (last-4) entry to your local CloakDLP console, along with the page's domain. The card
 number itself never leaves your browser; see `content.js` for the detection logic (mirrors
 `agent/CloakDlp.Agent/Detection/CreditCardDetector.cs`) and `background.js` for reporting.
+
+If the matching policy's action is Block (and Simulate mode is off), the form submission itself
+is stopped: `content.js`'s `submit` listener holds the submission, asks the console for a
+block/no-block answer, and either shows a warning (blocked) or lets it through (not blocked) -
+see "Blocking" in `../ARCHITECTURE.md` for the full mechanism and its scope limits (native
+`<form>` submissions only; a fetch/XHR-based checkout has nothing here to intercept).
 
 ## Why this exists
 

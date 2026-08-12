@@ -91,10 +91,14 @@ async function postIncident(creds, redactedSnippet, pageUrl) {
   });
 }
 
+// Returns whether the console says to actually block this submission. Fails open (false) on
+// every error path - console unreachable, no policy configured, request rejected - matching the
+// "best-effort, log only" posture everywhere else in this project. There's no local queue/retry,
+// so a console that's down simply means nothing gets blocked or reported for that attempt.
 async function reportIncident(redactedSnippet, pageUrl) {
   try {
     let creds = await getCredentials();
-    if (!creds.policyId) return; // console has no enabled credit_card policy; nothing to file against
+    if (!creds.policyId) return false; // console has no enabled credit_card policy; nothing to file against
 
     let res = await postIncident(creds, redactedSnippet, pageUrl);
 
@@ -102,22 +106,35 @@ async function reportIncident(redactedSnippet, pageUrl) {
       // Stored API key no longer valid (e.g. the console's database was reset); re-pair once.
       await chrome.storage.local.remove(["agentId", "apiKey", "policyId"]);
       creds = await selfRegister();
-      if (!creds.policyId) return;
+      if (!creds.policyId) return false;
       res = await postIncident(creds, redactedSnippet, pageUrl);
     }
 
     if (!res.ok) {
       console.error(`[CloakDLP] incident report failed: HTTP ${res.status}`);
+      return false;
     }
+
+    const data = await res.json();
+    return data.blocked === true;
   } catch (err) {
-    // Most likely cause: the console isn't running. Nothing useful to do but drop it; there's
-    // no local queue/retry, matching the "log only, best-effort" posture everywhere else.
+    // Most likely cause: the console isn't running.
     console.error("[CloakDLP] couldn't reach the console:", err);
+    return false;
   }
 }
 
-chrome.runtime.onMessage.addListener((message) => {
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "card-entry-detected") {
+    // Fire-and-forget: reported while typing, purely for visibility, no submission to hold up.
     reportIncident(message.redactedSnippet, message.pageUrl);
+    return false;
+  }
+  if (message?.type === "card-entry-submit-check") {
+    // content.js has already preventDefault()'d the real submit and is waiting on this answer
+    // before deciding whether to let it through; `return true` keeps the message channel open
+    // for the async sendResponse below (MV3 service workers can't just return a value here).
+    reportIncident(message.redactedSnippet, message.pageUrl).then((blocked) => sendResponse({ blocked }));
+    return true;
   }
 });

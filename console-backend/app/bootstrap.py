@@ -19,7 +19,10 @@ def ensure_default_policy() -> None:
             name=DEFAULT_POLICY_NAME,
             description=(
                 "Flags every time a credit card number is entered or transmitted, on any "
-                "channel. Never blocks; this is an awareness tool, not an enforcement one."
+                "channel. Starts in flag-only mode; switch the action to Block and turn off "
+                "Simulate mode to actually stop it (clears the clipboard, cancels the print "
+                "job, rejects the network request, or blocks the form submission, depending "
+                "on the channel)."
             ),
             data_type=DataType.credit_card,
             detection_method=DetectionMethod.regex,

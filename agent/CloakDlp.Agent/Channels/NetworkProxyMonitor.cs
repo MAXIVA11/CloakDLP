@@ -9,8 +9,9 @@ namespace CloakDlp.Agent.Channels;
 // raw TcpListener rather than HttpListener: HttpListener resolves Request.Url against its own
 // registered prefix, not the absolute-URI a proxy client actually requests, which makes it
 // silently loop a request back on itself instead of forwarding it; not usable for a real
-// forward proxy. Buffers each request body, scans it, then forwards it unchanged; Phase 2 is
-// detect/log only, never blocks.
+// forward proxy. Buffers each request body, scans it, then reports each match and asks the
+// console whether the matching policy says to block; only forwards the request upstream if the
+// answer is no (see HandleConnectionAsync).
 //
 // Scope notes:
 //  - HTTP only. HTTPS interception needs a local CA installed into the OS/browser trust store
@@ -98,6 +99,7 @@ public sealed class NetworkProxyMonitor
                 return;
             }
 
+            var blocked = false;
             if (request.Body.Length > 0)
             {
                 var sourceIdentifier = targetUri.GetLeftPart(UriPartial.Path);
@@ -106,14 +108,28 @@ public sealed class NetworkProxyMonitor
                 {
                     var text = Encoding.UTF8.GetString(request.Body);
                     foreach (var match in _pipeline.Scan(text))
-                        await _reporter.ReportAsync(match, "network", sourceIdentifier);
+                    {
+                        var result = await _reporter.ReportAsync(match, "network", sourceIdentifier);
+                        blocked = blocked || result.Blocked;
+                    }
                 }
 
                 if (_fingerprintMatcher is not null)
                 {
                     foreach (var match in _fingerprintMatcher.Match(request.Body))
-                        await _reporter.ReportAsync(match, "network", sourceIdentifier);
+                    {
+                        var result = await _reporter.ReportAsync(match, "network", sourceIdentifier);
+                        blocked = blocked || result.Blocked;
+                    }
                 }
+            }
+
+            if (blocked)
+            {
+                // The request never reaches targetUri at all - the point of "block" is that the
+                // data doesn't leave, not that it leaves and gets flagged afterward.
+                await WriteRawAsync(stream, "HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\nBlocked by CloakDLP policy.", ct);
+                return;
             }
 
             await ForwardAsync(stream, targetUri, request, ct);

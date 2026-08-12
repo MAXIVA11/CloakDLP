@@ -78,6 +78,9 @@ internal static class User32
     [DllImport("user32.dll")]
     public static extern bool CloseClipboard();
 
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool EmptyClipboard();
+
     [DllImport("user32.dll")]
     public static extern nint GetClipboardData(uint uFormat);
 

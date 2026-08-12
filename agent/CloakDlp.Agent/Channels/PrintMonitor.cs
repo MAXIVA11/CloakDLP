@@ -74,9 +74,22 @@ public sealed class PrintMonitor
             if (string.IsNullOrWhiteSpace(job.pDocument)) continue;
 
             var matches = _pipeline.Scan(job.pDocument);
+            var blocked = false;
             foreach (var match in matches)
             {
-                await _reporter.ReportAsync(match, "print", $"{printerName} / job {job.JobId} / {job.pDocument}");
+                var result = await _reporter.ReportAsync(match, "print", $"{printerName} / job {job.JobId} / {job.pDocument}");
+                blocked = blocked || result.Blocked;
+            }
+
+            // Best-effort: by the time this notification fires the job may already be fully
+            // spooled or even partway printed (this only ever scanned the job's title, not its
+            // content, so there's no way to hold the job back before it's queued in the first
+            // place - see the scope note above). Still worth attempting; a multi-page job caught
+            // early can genuinely be stopped before it finishes.
+            if (blocked)
+            {
+                Winspool.SetJob(hPrinter, job.JobId, 0, 0, Winspool.JOB_CONTROL_CANCEL);
+                Console.WriteLine($"  [print] job {job.JobId} canceled (blocked).");
             }
         }
     }
