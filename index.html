@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CloakDLP: catch a card number before it leaves your PC</title>
+<meta name="description" content="A Windows tool that catches a credit card number the moment it's typed, copied, printed, or sent, and can block it outright. Runs entirely on your own machine.">
+<link rel="icon" href="https://raw.githubusercontent.com/MAXIVA11/CloakDLP/main/docs/assets/logo.png">
+<style>
+  :root {
+    --bg: #0a0c0f;
+    --bg-raised: #14171c;
+    --bg-card: #14171c;
+    --border: #23272e;
+    --text: #e8eaed;
+    --text-dim: #9aa0aa;
+    --text-faint: #676d78;
+    --accent: #4f8cff;
+    --accent-soft: rgba(79, 140, 255, 0.12);
+    --danger: #ff5c5c;
+    --success: #34c77b;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: inherit; }
+
+  .wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 18px;
+    text-decoration: none;
+  }
+  .brand img { width: 28px; height: 28px; display: block; }
+
+  nav a {
+    text-decoration: none;
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-left: 28px;
+    transition: color 0.15s;
+  }
+  nav a:hover { color: var(--text); }
+
+  .hero {
+    padding: 88px 0 64px;
+    text-align: center;
+  }
+
+  .hero h1 {
+    font-size: clamp(32px, 5vw, 52px);
+    line-height: 1.15;
+    margin: 0 0 20px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  .hero h1 .accent { color: var(--accent); }
+
+  .hero p.lead {
+    font-size: 19px;
+    color: var(--text-dim);
+    max-width: 640px;
+    margin: 0 auto 40px;
+  }
+
+  .cta-row {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 13px 26px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 15px;
+    text-decoration: none;
+    transition: transform 0.15s, background 0.15s, border-color 0.15s;
+    border: 1px solid transparent;
+  }
+  .btn:hover { transform: translateY(-1px); }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover { background: #6d9fff; }
+
+  .btn-secondary {
+    background: var(--bg-raised);
+    color: var(--text);
+    border-color: var(--border);
+  }
+  .btn-secondary:hover { border-color: #3a4048; }
+
+  .subtext {
+    font-size: 13px;
+    color: var(--text-faint);
+  }
+
+  .shot {
+    margin-top: 56px;
+  }
+  .shot img {
+    width: 100%;
+    max-width: 940px;
+    display: block;
+    margin: 0 auto;
+    border-radius: 14px;
+    box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.6);
+  }
+
+  section.features {
+    padding: 72px 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .section-head {
+    text-align: center;
+    max-width: 620px;
+    margin: 0 auto 48px;
+  }
+  .section-head h2 {
+    font-size: 30px;
+    margin: 0 0 12px;
+    letter-spacing: -0.01em;
+  }
+  .section-head p {
+    color: var(--text-dim);
+    margin: 0;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+  }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 26px;
+  }
+  .card .icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    background: var(--accent-soft);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+    font-size: 18px;
+  }
+  .card h3 {
+    font-size: 16px;
+    margin: 0 0 8px;
+  }
+  .card p {
+    font-size: 14px;
+    color: var(--text-dim);
+    margin: 0;
+  }
+
+  section.how {
+    padding: 72px 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 28px;
+    counter-reset: step;
+  }
+  .step {
+    position: relative;
+    padding-left: 44px;
+  }
+  .step::before {
+    counter-increment: step;
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .step h3 {
+    font-size: 15px;
+    margin: 2px 0 6px;
+  }
+  .step p {
+    font-size: 14px;
+    color: var(--text-dim);
+    margin: 0;
+  }
+
+  section.trust {
+    padding: 56px 0;
+    border-top: 1px solid var(--border);
+    text-align: center;
+  }
+  section.trust p {
+    max-width: 640px;
+    margin: 0 auto;
+    color: var(--text-dim);
+    font-size: 15px;
+  }
+  section.trust strong { color: var(--text); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 32px 0 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  footer .copy {
+    font-size: 13px;
+    color: var(--text-faint);
+  }
+  footer .links a {
+    text-decoration: none;
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-left: 20px;
+  }
+  footer .links a:hover { color: var(--text); }
+  footer .links a:first-child { margin-left: 0; }
+
+  @media (max-width: 600px) {
+    nav a { margin-left: 16px; }
+    footer { flex-direction: column; align-items: flex-start; }
+    footer .links a:first-child { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <a class="brand" href="#">
+      <img src="https://raw.githubusercontent.com/MAXIVA11/CloakDLP/main/docs/assets/logo.png" alt="CloakDLP">
+      CloakDLP
+    </a>
+    <nav>
+      <a href="https://github.com/MAXIVA11/CloakDLP/wiki">Wiki</a>
+      <a href="https://github.com/MAXIVA11/CloakDLP/blob/main/ARCHITECTURE.md">Architecture</a>
+      <a href="https://github.com/MAXIVA11/CloakDLP">GitHub</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <h1>Catch your card number<br>before it <span class="accent">leaves your PC.</span></h1>
+    <p class="lead">
+      CloakDLP watches for a credit card number the moment it's typed, copied, printed, or sent
+      over the network, and can block it outright. Everything runs on your own machine. There is
+      no CloakDLP server, no account, and no telemetry.
+    </p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="https://github.com/MAXIVA11/CloakDLP/releases/latest">
+        Download for Windows
+      </a>
+      <a class="btn btn-secondary" href="https://github.com/MAXIVA11/CloakDLP">
+        View source on GitHub
+      </a>
+    </div>
+    <p class="subtext">Free, open source (MIT), Windows 10/11.</p>
+
+    <div class="shot">
+      <img src="https://raw.githubusercontent.com/MAXIVA11/CloakDLP/main/docs/assets/screenshot-incidents.png" alt="CloakDLP console showing the live incidents feed, with flagged and blocked card-entry events, redacted card numbers, source domains, and risk badges.">
+    </div>
+  </section>
+
+  <section class="features">
+    <div class="section-head">
+      <h2>Catches it everywhere it can leak</h2>
+      <p>Four channels, one console, one set of policies.</p>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <div class="icon">&#9000;</div>
+        <h3>Typed into a checkout form</h3>
+        <p>A browser extension reads the card field directly, before the browser ever encrypts it, so this works on real HTTPS checkout pages, not just plain HTTP.</p>
+      </div>
+      <div class="card">
+        <div class="icon">&#9003;</div>
+        <h3>Copied to the clipboard</h3>
+        <p>Detects a Luhn-valid card number the instant it's copied, and can clear the clipboard immediately if the matching policy says to block it.</p>
+      </div>
+      <div class="card">
+        <div class="icon">&#9113;</div>
+        <h3>Sent to a printer</h3>
+        <p>Watches the print queue and can cancel a job outright before it reaches the printer.</p>
+      </div>
+      <div class="card">
+        <div class="icon">&#9737;</div>
+        <h3>Sent over the network</h3>
+        <p>A local proxy inspects plain HTTP traffic and can reject a request outright instead of just logging it after the fact.</p>
+      </div>
+      <div class="card">
+        <div class="icon">&#9888;</div>
+        <h3>Risk-aware blocking</h3>
+        <p>Optionally require the destination domain to actually look risky (malware/phishing blocklist, WHOIS domain age) before blocking, so a well-known site you shop at just gets logged instead of stopped.</p>
+      </div>
+      <div class="card">
+        <div class="icon">&#9881;</div>
+        <h3>Zero-config</h3>
+        <p>Install the MSI, and the console opens itself, already signed in, already paired, with a working policy. Nothing to copy-paste, no API keys to wire up by hand.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="how">
+    <div class="section-head">
+      <h2>How it works</h2>
+      <p>Three pieces, all running locally.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <h3>Console</h3>
+        <p>A local web app at <code>127.0.0.1:8123</code> where you set policies and watch the live incident feed.</p>
+      </div>
+      <div class="step">
+        <h3>Desktop agent</h3>
+        <p>A Windows service covering clipboard, print, and local network traffic.</p>
+      </div>
+      <div class="step">
+        <h3>Browser extension</h3>
+        <p>Covers typed card entry on real checkout pages, which is where most card numbers actually get entered.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="trust">
+    <p>
+      The full card number <strong>never leaves your browser or your machine</strong>. Every match
+      is redacted to the last 4 digits before it's ever written down, into your own local console,
+      running on your own PC. CloakDLP is fully open source under the MIT license, so every claim
+      here is independently verifiable by reading the code.
+    </p>
+  </section>
+
+  <footer>
+    <div class="copy">CloakDLP &middot; MIT licensed</div>
+    <div class="links">
+      <a href="https://github.com/MAXIVA11/CloakDLP/wiki">Wiki</a>
+      <a href="https://github.com/MAXIVA11/CloakDLP/releases/latest">Releases</a>
+      <a href="https://github.com/MAXIVA11/CloakDLP/issues">Issues</a>
+      <a href="https://github.com/MAXIVA11/CloakDLP/blob/main/LICENSE">License</a>
+    </div>
+  </footer>
+</div>
+
+</body>
+</html>
