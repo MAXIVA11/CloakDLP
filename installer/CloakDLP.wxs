@@ -6,7 +6,7 @@
   <Package
     Name="CloakDLP"
     Manufacturer="CloakDLP"
-    Version="0.6.0.0"
+    Version="0.7.0.0"
     UpgradeCode="17D219AF-C57B-4340-AB4D-6B3EA6B10D37"
     Language="1033"
     Scope="perMachine">
