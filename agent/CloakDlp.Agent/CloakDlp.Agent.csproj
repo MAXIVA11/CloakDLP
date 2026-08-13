@@ -7,6 +7,7 @@
     <Nullable>enable</Nullable>
     <RootNamespace>CloakDlp.Agent</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationIcon>agent.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
