@@ -95,8 +95,7 @@ export default function PoliciesPage() {
               <TableHead>Name</TableHead>
               <TableHead className="w-40">Data type</TableHead>
               <TableHead className="w-44">Channels</TableHead>
-              <TableHead className="w-28">Action</TableHead>
-              <TableHead className="w-24">Mode</TableHead>
+              <TableHead className="w-28">Mode</TableHead>
               <TableHead className="w-20">Enabled</TableHead>
               <TableHead className="w-10" />
             </TableRow>
@@ -105,7 +104,7 @@ export default function PoliciesPage() {
             {policies === null &&
               Array.from({ length: 3 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 7 }).map((__, j) => (
+                  {Array.from({ length: 6 }).map((__, j) => (
                     <TableCell key={j}>
                       <Skeleton className="h-4 w-full" />
                     </TableCell>
@@ -115,7 +114,7 @@ export default function PoliciesPage() {
 
             {isEmpty && (
               <TableRow>
-                <TableCell colSpan={7} className="h-48 text-center">
+                <TableCell colSpan={6} className="h-48 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <ShieldCheck className="size-6" />
                     <p className="text-sm">No policies yet.</p>
@@ -150,12 +149,7 @@ export default function PoliciesPage() {
                     ))}
                   </div>
                 </TableCell>
-                <TableCell className="text-sm capitalize">{policy.action}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className={policy.simulate_mode ? "text-muted-foreground" : "text-warning border-warning/40"}>
-                    {policy.simulate_mode ? "Simulate" : "Enforce"}
-                  </Badge>
-                </TableCell>
+                <TableCell className="text-sm capitalize">{policy.action === "log" ? "Log Only" : "Block"}</TableCell>
                 <TableCell onClick={(e) => e.stopPropagation()}>
                   <Switch checked={policy.enabled} onCheckedChange={() => toggleEnabled(policy)} />
                 </TableCell>

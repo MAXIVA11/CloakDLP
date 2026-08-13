@@ -52,7 +52,6 @@ class PolicyBase(BaseModel):
     risk_threshold: RiskThreshold | None = None
     target_scope: dict = {}
     enabled: bool = True
-    simulate_mode: bool = True
     edm_dataset_id: str | None = None
     fingerprint_dataset_id: str | None = None
 
@@ -71,7 +70,6 @@ class PolicyUpdate(BaseModel):
     risk_threshold: RiskThreshold | None = None
     target_scope: dict | None = None
     enabled: bool | None = None
-    simulate_mode: bool | None = None
     edm_dataset_id: str | None = None
     fingerprint_dataset_id: str | None = None
 
@@ -224,7 +222,6 @@ class ChannelBreakdown(BaseModel):
 
 class DashboardStats(BaseModel):
     blocked_today: int
-    flagged_today: int
     logged_today: int
     active_policies: int
     agents_online: int

@@ -1,5 +1,5 @@
 export type Channel = "file" | "clipboard" | "print" | "network";
-export type Action = "block" | "flag" | "log";
+export type Action = "block" | "log";
 export type RiskThreshold = "low" | "medium" | "high";
 export type DetectionMethod = "regex" | "edm" | "fingerprint";
 export type DataType =
@@ -25,7 +25,6 @@ export interface Policy {
   risk_threshold: RiskThreshold | null;
   target_scope: Record<string, unknown>;
   enabled: boolean;
-  simulate_mode: boolean;
   edm_dataset_id: string | null;
   fingerprint_dataset_id: string | null;
   created_at: string;
@@ -83,7 +82,6 @@ export interface WorkstationStatus {
 
 export interface DashboardStats {
   blocked_today: number;
-  flagged_today: number;
   logged_today: number;
   active_policies: number;
   agents_online: number;

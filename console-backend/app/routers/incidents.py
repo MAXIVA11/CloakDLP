@@ -67,12 +67,12 @@ _RISK_RANK = {"low": 1, "medium": 2, "high": 3}  # "unknown" is deliberately abs
 
 
 async def _effective_action(policy: Policy | None, source_identifier: str) -> tuple[Action, dict]:
-    """The channels (browser extension, desktop agent) don't know a policy's configured action,
-    simulate_mode, or risk_threshold - they only carry a policy_id, matching how EDM/fingerprint
-    bindings work. Trusting a client-supplied action_taken would mean the client itself decides
-    what happened, which is both meaningless (every channel used to just hardcode "flag"/"log")
-    and the wrong place to decide it: policy config can change without every client's cached copy
-    noticing. This is the single source of truth, computed fresh on every incident.
+    """The channels (browser extension, desktop agent) don't know a policy's configured action or
+    risk_threshold - they only carry a policy_id, matching how EDM/fingerprint bindings work.
+    Trusting a client-supplied action_taken would mean the client itself decides what happened,
+    which is both meaningless (every channel just hardcodes "log") and the wrong place to decide
+    it: policy config can change without every client's cached copy noticing. This is the single
+    source of truth, computed fresh on every incident.
 
     Returns (action_taken, extra) - extra carries the risk score/level/reason when a risk lookup
     happened here, so the caller can store it immediately instead of waiting on the background
@@ -83,10 +83,6 @@ async def _effective_action(policy: Policy | None, source_identifier: str) -> tu
         return Action.log, {}
     if policy.action != Action.block:
         return policy.action, {}
-    if policy.simulate_mode:
-        # simulate_mode softens a real block down to a flag - reported and visible, but not
-        # enforced - matching the policy editor's own "log matches without blocking" copy.
-        return Action.flag, {}
     if policy.risk_threshold is None:
         return Action.block, {}  # unconditional block, the original meaning of this action
 
@@ -95,8 +91,8 @@ async def _effective_action(policy: Policy | None, source_identifier: str) -> tu
         # A risk_threshold can only ever be evaluated against a domain (network-channel traffic,
         # including the browser extension, which also reports channel="network"); a match with
         # no domain to score - clipboard, print, a plain file path - can't satisfy the condition,
-        # so this fails open to a flag rather than blocking blind.
-        return Action.flag, {}
+        # so this fails open to a log rather than blocking blind.
+        return Action.log, {}
 
     # Deliberately awaited here, not backgrounded: a block decision has to be known before this
     # request returns, so the channel can act on it in the same round trip. This does add real
@@ -112,7 +108,7 @@ async def _effective_action(policy: Policy | None, source_identifier: str) -> tu
     # answer.
     if _RISK_RANK.get(result.level, 0) >= _RISK_RANK[policy.risk_threshold.value]:
         return Action.block, extra
-    return Action.flag, extra
+    return Action.log, extra
 
 
 @router.post("", response_model=IncidentOut, status_code=201)

@@ -19,18 +19,16 @@ def ensure_default_policy() -> None:
         policy = Policy(
             name=DEFAULT_POLICY_NAME,
             description=(
-                "Flags every time a credit card number is entered or transmitted, on any "
-                "channel. Starts in flag-only mode; switch the action to Block and turn off "
-                "Simulate mode to actually stop it (clears the clipboard, cancels the print "
-                "job, rejects the network request, or blocks the form submission, depending "
-                "on the channel)."
+                "Records every time a credit card number is entered or transmitted, on any "
+                "channel. Starts in Log Only mode; switch to Block to actually stop it (clears "
+                "the clipboard, cancels the print job, rejects the network request, or blocks "
+                "the form submission, depending on the channel)."
             ),
             data_type=DataType.credit_card,
             detection_method=DetectionMethod.regex,
             channels=[Channel.network.value, Channel.clipboard.value, Channel.file.value],
-            action=Action.flag,
+            action=Action.log,
             enabled=True,
-            simulate_mode=True,
         )
         db.add(policy)
         db.commit()
@@ -48,17 +46,16 @@ def ensure_default_password_policy() -> None:
         policy = Policy(
             name=DEFAULT_PASSWORD_POLICY_NAME,
             description=(
-                "Flags a password submitted on a risky domain. Never inspects or transmits "
+                "Records a password submitted on a risky domain. Never inspects or transmits "
                 "the password itself. Set a risk threshold before switching to Block, or it "
                 "blocks every login."
             ),
             data_type=DataType.credentials,
             detection_method=DetectionMethod.regex,
             channels=[Channel.network.value],
-            action=Action.flag,
+            action=Action.log,
             risk_threshold=None,
             enabled=True,
-            simulate_mode=True,
         )
         db.add(policy)
         db.commit()

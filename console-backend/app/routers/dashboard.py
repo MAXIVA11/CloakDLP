@@ -49,7 +49,6 @@ def stats(db: Session = Depends(get_db)):
 
     return DashboardStats(
         blocked_today=count_today(Action.block),
-        flagged_today=count_today(Action.flag),
         logged_today=count_today(Action.log),
         active_policies=active_policies,
         agents_online=agents_online,

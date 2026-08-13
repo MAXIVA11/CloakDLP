@@ -25,7 +25,6 @@ class Channel(str, enum.Enum):
 
 class Action(str, enum.Enum):
     block = "block"
-    flag = "flag"
     log = "log"
 
 
@@ -98,7 +97,6 @@ class Policy(Base):
     risk_threshold: Mapped[RiskThreshold | None] = mapped_column(Enum(RiskThreshold), nullable=True)
     target_scope: Mapped[dict] = mapped_column(JSON, default=dict)  # {"users": [...], "groups": [...], "devices": [...]}
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    simulate_mode: Mapped[bool] = mapped_column(Boolean, default=True)
     # Only meaningful when data_type == edm_dataset; which reference dataset this policy checks against.
     edm_dataset_id: Mapped[str | None] = mapped_column(ForeignKey("edm_datasets.id"), nullable=True)
     # Only meaningful when data_type == fingerprint_doc; which reference document this policy checks against.
@@ -152,8 +150,8 @@ class Incident(Base):
     def blocked(self) -> bool:
         # action_taken is always the server-computed effective action (see
         # routers/incidents.py::_effective_action) - "block" only appears here when the
-        # matching policy actually says to block AND isn't in simulate mode, so this is a
-        # plain derived flag, not a second source of truth to keep in sync.
+        # matching policy actually says to block, so this is a plain derived flag, not a
+        # second source of truth to keep in sync.
         return self.action_taken == Action.block
 
 

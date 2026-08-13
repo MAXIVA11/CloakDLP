@@ -1,4 +1,4 @@
-import { Ban, Eye, FileText, ShieldQuestion } from "lucide-react";
+import { Ban, FileText, ShieldQuestion } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -11,11 +11,6 @@ const actionConfig: Record<Action, { label: string; className: string; icon: Rea
     label: "Blocked",
     className: "bg-destructive/10 text-destructive dark:bg-destructive/20",
     icon: Ban,
-  },
-  flag: {
-    label: "Flagged",
-    className: "bg-warning/10 text-warning dark:bg-warning/20",
-    icon: Eye,
   },
   log: {
     label: "Log only",

@@ -84,7 +84,6 @@ export default function OverviewPage() {
               </CardHeader>
               <CardContent className="flex flex-col gap-3">
                 <ActionRow icon={Ban} label="Blocked" value={stats.blocked_today} tone="text-destructive" />
-                <ActionRow icon={Eye} label="Flagged" value={stats.flagged_today} tone="text-warning" />
                 <ActionRow icon={FileText} label="Logged" value={stats.logged_today} tone="text-info" />
               </CardContent>
             </Card>

@@ -25,6 +25,5 @@ running (see its README); sign in with a user created via `POST /api/auth/regist
 - `src/app/(console)/`; authenticated app shell: Overview, Policies, Incidents, Fingerprints,
   Agents, Reports
 - `src/app/login/`; sign-in page
-- `src/components/`; shared UI: sidebar, badges, metric cards, the policy editor's
-  simulate-before-enforce flow
+- `src/components/`; shared UI: sidebar, badges, metric cards, the policy editor
 - `src/lib/`; API client, auth context, incident websocket hook

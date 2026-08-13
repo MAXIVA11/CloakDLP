@@ -18,6 +18,15 @@ def run_migrations() -> None:
     existing_tables = set(inspector.get_table_names())
 
     with engine.begin() as conn:
+        # Must run before anything below (or anything in bootstrap.py, called right after this)
+        # does an ORM read of these tables: SQLAlchemy's Enum type validates a row's stored value
+        # against the current Python enum on the way out, and now that "flag" isn't a member of
+        # Action any more, any pre-existing row still holding the string "flag" would raise the
+        # moment it's read through the ORM - not just fail to save. Raw SQL sidesteps that
+        # validation entirely, which is exactly what's needed to fix the data before anything
+        # tries to read it the normal way.
+        _migrate_flag_action_to_log(conn, existing_tables)
+
         for table in Base.metadata.sorted_tables:
             if table.name not in existing_tables:
                 continue  # brand-new table; create_all() already handled it
@@ -33,6 +42,29 @@ def run_migrations() -> None:
                 conn.execute(text(ddl))
 
         _drop_stale_unique_index(conn, "agents", "ix_agents_hostname")
+        _drop_column_if_exists(conn, inspector, "policies", "simulate_mode")
+
+
+def _migrate_flag_action_to_log(conn, existing_tables: set[str]) -> None:
+    """"Flag" was removed as an Action value entirely (the model collapsed from three states -
+    log/flag/block - down to two: a policy is either Log Only or Block, full stop). Any policy or
+    incident row written before this change can still hold the literal string "flag" in
+    policies.action or incidents.action_taken; those become plain "log" rows, matching what
+    "flag" always actually meant in practice (recorded, visible, never enforced)."""
+    for table_name, column in (("policies", "action"), ("incidents", "action_taken")):
+        if table_name not in existing_tables:
+            continue
+        conn.execute(text(f"UPDATE {table_name} SET {column} = 'log' WHERE {column} = 'flag'"))
+
+
+def _drop_column_if_exists(conn, inspector, table_name: str, column_name: str) -> None:
+    """The inverse of the ADD-COLUMN loop above: a column the model no longer declares (here,
+    Policy.simulate_mode) but that still exists on disk from an earlier install. Requires SQLite
+    3.35+ (2021) for ALTER TABLE ... DROP COLUMN, which every supported packaged build ships."""
+    existing_columns = {col["name"] for col in inspector.get_columns(table_name)}
+    if column_name not in existing_columns:
+        return
+    conn.execute(text(f"ALTER TABLE {table_name} DROP COLUMN {column_name}"))
 
 
 def _drop_stale_unique_index(conn, table_name: str, index_name: str) -> None:

@@ -108,7 +108,7 @@ async function postIncident(creds, redactedSnippet, pageUrl) {
     body: JSON.stringify({
       policy_id: creds.policyId,
       channel: "network",
-      action_taken: "flag",
+      action_taken: "log",
       confidence: 0.95,
       redacted_snippet: redactedSnippet,
       rule_id: "browser-extension-card-entry-v1",
@@ -180,7 +180,7 @@ async function postPasswordIncident(creds, pageUrl) {
     body: JSON.stringify({
       policy_id: creds.passwordPolicyId,
       channel: "network",
-      action_taken: "flag",
+      action_taken: "log",
       confidence: 1.0,
       // Never the password itself, or any fragment derived from it - there's no safe partial
       // representation the way a card's last-4 digits are. Only the fact that a password field

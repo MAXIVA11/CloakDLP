@@ -51,21 +51,21 @@ engine is proven and we know what specifically needs hardening.
 ### Console backend
 
 - **Stack**: Python + FastAPI, SQLite by default (Postgres via `DATABASE_URL` for prod).
-- Policy CRUD: rules by data type, detection method, channel, action (block/flag/log), and
+- Policy CRUD: rules by data type, detection method, channel, mode (log only/block), and
   target scope (user/group/device).
 - Incident ingestion API (agent → console), auth'd.
 - **WebSocket** push for the live incident feed (chosen over polling for true real-time UX).
-- Policy simulate mode: replay a policy against a historical window before enforcing it live.
+- Policy preview: check a policy's channels against already-logged history before enforcing it.
 
 ### Console frontend
 
 - **Stack**: React (Next.js) + Tailwind + shadcn/ui; real component system, not hand-rolled CSS.
 - Sidebar nav: Overview, Policies, Incidents, Fingerprints, Agents, Reports.
 - Dense, readable data tables; live incident feed with severity/action badges
-  (Blocked / Flagged / Log only).
+  (Blocked / Log only).
 - Metric cards: blocked today, active policies, agents online, false-positive rate.
 - Per-channel detection breakdown (clipboard / file / print / network).
-- Policy editor with simulate-before-enforce as the flagship flow.
+- Policy editor with a simple two-state Mode (Log Only / Block) as the flagship flow.
 - Full dark mode. Flat, restrained, no gradients/skeuomorphism.
 
 ## Detection engine (phased; see below)
@@ -132,10 +132,9 @@ loopback by default anyway:
   whatever credentials come back (`%ProgramData%\CloakDLP\agent_credentials.json` for the
   agent; `chrome.storage.local` for the extension).
 - **Default policy**: the console auto-creates a "Credit Card Entry" policy (`app/bootstrap.py`)
-  on first startup if none exists, flag-only, `simulate_mode=true` - starts as an awareness tool,
-  not an enforcement one, since blocking someone's own checkout out of the box would be actively
-  harmful. Switching it to Block (with simulate mode off) makes it a real enforcement policy; see
-  "Blocking" below.
+  on first startup if none exists, Mode = Log Only - starts as an awareness tool, not an
+  enforcement one, since blocking someone's own checkout out of the box would be actively
+  harmful. Switching it to Block makes it a real enforcement policy; see "Blocking" below.
 - **Pairing responses include the right policy id** (`default_credit_card_policy_id` on both
   register endpoints) so a fresh agent or extension install doesn't need a second round-trip or
   any console-side lookup to know what to report against.
@@ -162,16 +161,15 @@ consistent with everything else in this project that's been kept to "works out o
 `Policy.action` has always had a `block` value and the policy editor has always let you pick it,
 but for a long time nothing actually enforced it - every channel just detected, redacted, and
 reported, then let the content through regardless. The channels only ever carry a `policy_id`,
-not the policy's own `action`/`simulate_mode`, and trusting a client-reported "yes I blocked
-this" would mean the client decides what happened, which is both meaningless (every channel used
-to just hardcode a fixed `action_taken` value) and the wrong place to decide it - policy config
-can change at any moment, with nothing telling an already-running channel its cached copy is
-stale.
+not the policy's own `action`, and trusting a client-reported "yes I blocked this" would mean
+the client decides what happened, which is both meaningless (every channel just hardcodes a
+fixed `action_taken` value) and the wrong place to decide it - policy config can change at any
+moment, with nothing telling an already-running channel its cached copy is stale.
 
 So the decision is made once, server-side, on every incident: `routers/incidents.py::
-_effective_action` looks up the policy fresh and computes the real `action_taken` - `block` only
-when the policy says block AND `simulate_mode` is off (simulate softens a real block down to
-`flag`: still visible in the Incidents feed, never enforced). `Incident.blocked` is just
+_effective_action` looks up the policy fresh and computes the real `action_taken` - a policy is
+either Log Only or Block, full stop, so this is a straight pass-through of the policy's own
+mode (modulated only by risk_threshold, see below). `Incident.blocked` is just
 `action_taken == block`, exposed on `IncidentOut` so the channel that reported the match gets a
 synchronous, authoritative answer back in the same response, and can act immediately:
 

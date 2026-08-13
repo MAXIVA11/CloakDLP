@@ -7,9 +7,9 @@ using CloakDlp.Agent.Models;
 namespace CloakDlp.Agent;
 
 // Reported is whether the incident was successfully recorded; Blocked is the console's
-// authoritative answer to "should the channel actually stop this" - the policy's real action
-// and simulate_mode live server-side, not in anything a channel has cached, so this is always
-// asked fresh rather than assumed. Fails closed on the "was it reported" question (a failed
+// authoritative answer to "should the channel actually stop this" - the policy's real mode
+// lives server-side, not in anything a channel has cached, so this is always asked fresh
+// rather than assumed. Fails closed on the "was it reported" question (a failed
 // report returns Reported=false) but open on blocking (any failure - network error, console
 // down - returns Blocked=false, matching the "best-effort, log only" posture everywhere else
 // in this project rather than risking silently breaking someone's clipboard/printing/browsing

@@ -67,7 +67,6 @@ function emptyForm(): PolicyInput {
     risk_threshold: null,
     target_scope: {},
     enabled: true,
-    simulate_mode: true,
     edm_dataset_id: null,
     fingerprint_dataset_id: null,
   };
@@ -228,7 +227,7 @@ export function PolicyEditorDialog({
 
           <div className="grid grid-cols-3 gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label>On match</Label>
+              <Label>Mode</Label>
               <Select
                 value={form.action}
                 onValueChange={(v) => setForm((f) => ({ ...f, action: v as Action }))}
@@ -237,16 +236,26 @@ export function PolicyEditorDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="log">Log only</SelectItem>
-                  <SelectItem value="flag">Flag for review</SelectItem>
+                  <SelectItem value="log">Log Only</SelectItem>
                   <SelectItem value="block">Block</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
+            <div className="flex flex-col gap-1.5">
+              <Label>Enabled</Label>
+              <div className="flex h-9 items-center gap-2 rounded-md border px-3">
+                <Switch
+                  checked={form.enabled}
+                  onCheckedChange={(v) => setForm((f) => ({ ...f, enabled: v }))}
+                />
+                <span className="text-sm text-muted-foreground">{form.enabled ? "Yes" : "No"}</span>
+              </div>
+            </div>
+
             {form.action === "block" && (
-              <div className="col-span-2 flex flex-col gap-1.5">
-                <Label>Only block when domain risk is at least</Label>
+              <div className="flex flex-col gap-1.5">
+                <Label>Block when domain risk is at least</Label>
                 <Select
                   value={form.risk_threshold ?? "any"}
                   onValueChange={(v) =>
@@ -269,9 +278,9 @@ export function PolicyEditorDialog({
 
           {form.action === "block" && (
             <p className="-mt-2 text-xs text-muted-foreground">
-              Only applies to matches with a domain to score (network traffic, including the
-              browser extension). A match with no domain - clipboard, print, a file path - is
-              flagged instead of blocked, since there's nothing to score.
+              The risk threshold only applies to matches with a domain to score (network traffic,
+              including the browser extension). A match with no domain - clipboard, print, a file
+              path - is logged instead of blocked, since there's nothing to score.
               {form.data_type === "credentials" && form.risk_threshold === null && (
                 <span className="mt-1 block text-destructive">
                   Warning: with no risk threshold set, this blocks every login on every site -
@@ -358,41 +367,15 @@ export function PolicyEditorDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center justify-between rounded-md border px-3 py-2.5">
-              <div>
-                <p className="text-sm font-medium">Simulate mode</p>
-                <p className="text-xs text-muted-foreground">
-                  Log matches without blocking, even if the action above is Block.
-                </p>
-              </div>
-              <Switch
-                checked={form.simulate_mode}
-                onCheckedChange={(v) => setForm((f) => ({ ...f, simulate_mode: v }))}
-              />
-            </div>
-
-            <div className="flex items-center justify-between rounded-md border px-3 py-2.5">
-              <div>
-                <p className="text-sm font-medium">Enabled</p>
-                <p className="text-xs text-muted-foreground">Disabled policies are never evaluated.</p>
-              </div>
-              <Switch
-                checked={form.enabled}
-                onCheckedChange={(v) => setForm((f) => ({ ...f, enabled: v }))}
-              />
-            </div>
-          </div>
-
           <div className="rounded-md border bg-muted/40 p-3">
             <div className="mb-2 flex items-center gap-1.5 text-sm font-medium">
               <Eye className="size-3.5" />
-              Simulate against logged history
+              Preview against logged history
             </div>
             <p className="mb-2 text-xs text-muted-foreground">
               {previewCount === 0
                 ? "No previously logged incidents fall on these channels yet."
-                : `This policy's channels would have caught ${previewCount} of the incidents already logged by agents in simulate mode.`}
+                : `This policy's channels would have caught ${previewCount} of the incidents already logged.`}
               {" "}A fuller historical replay across raw content is a future enhancement, not implemented here.
             </p>
             {preview.length > 0 && (
