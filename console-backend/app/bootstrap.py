@@ -48,15 +48,9 @@ def ensure_default_password_policy() -> None:
         policy = Policy(
             name=DEFAULT_PASSWORD_POLICY_NAME,
             description=(
-                "Flags when a password is submitted on a site whose domain looks risky "
-                "(newly registered, or a known malware/phishing host). Never inspects or "
-                "transmits the password itself, only that one was entered. Browser extension "
-                "only - a login form isn't something the desktop agent's clipboard/print/network "
-                "channels can meaningfully see. Switch the action to Block to show a "
-                "'this looks risky, continue anyway?' confirmation before the login goes "
-                "through; leave the risk threshold set (this only ever fires on network-channel "
-                "matches, which always carry a domain to score), since an unconditional block "
-                "here would stop every login on every site."
+                "Flags a password submitted on a risky domain. Never inspects or transmits "
+                "the password itself. Set a risk threshold before switching to Block, or it "
+                "blocks every login."
             ),
             data_type=DataType.credentials,
             detection_method=DetectionMethod.regex,

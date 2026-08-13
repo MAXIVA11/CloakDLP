@@ -164,7 +164,14 @@ export function PolicyEditorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
+      {/* Wide + horizontally-arranged fields, not a single tall vertical stack: with enough
+          fields visible (risk threshold, EDM/fingerprint pickers, etc. all conditional) this
+          dialog's total height easily exceeded typical viewports, and DialogContent has no
+          max-height/scroll of its own - content simply rendered off the top and bottom of the
+          screen with nothing to scroll, leaving the Save button unreachable. max-h + overflow-y
+          here is a hard backstop for whatever's still too tall on a given screen; sticky on the
+          footer keeps Save/Cancel pinned in view even while the body above it scrolls. */}
+      <DialogContent className="flex max-h-[85vh] max-w-3xl flex-col overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{policy ? "Edit policy" : "New policy"}</DialogTitle>
           <DialogDescription>
@@ -173,27 +180,17 @@ export function PolicyEditorDialog({
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="policy-name">Name</Label>
-            <Input
-              id="policy-name"
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              placeholder="Credit card; file scan"
-            />
-          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="col-span-2 flex flex-col gap-1.5">
+              <Label htmlFor="policy-name">Name</Label>
+              <Input
+                id="policy-name"
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Credit card; file scan"
+              />
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="policy-description">Description</Label>
-            <Textarea
-              id="policy-description"
-              value={form.description}
-              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              rows={2}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <Label>Data type</Label>
               <Select value={form.data_type} onValueChange={(v) => setDataType(v as DataType)}>
@@ -209,7 +206,19 @@ export function PolicyEditorDialog({
                 </SelectContent>
               </Select>
             </div>
+          </div>
 
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="policy-description">Description</Label>
+            <Textarea
+              id="policy-description"
+              value={form.description}
+              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              rows={2}
+            />
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
             <div className="flex flex-col gap-1.5">
               <Label>On match</Label>
               <Select
@@ -226,39 +235,42 @@ export function PolicyEditorDialog({
                 </SelectContent>
               </Select>
             </div>
+
+            {form.action === "block" && (
+              <div className="col-span-2 flex flex-col gap-1.5">
+                <Label>Only block when domain risk is at least</Label>
+                <Select
+                  value={form.risk_threshold ?? "any"}
+                  onValueChange={(v) =>
+                    setForm((f) => ({ ...f, risk_threshold: v === "any" ? null : (v as RiskThreshold) }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="any">Any (block on every match)</SelectItem>
+                    <SelectItem value="low">Low or higher</SelectItem>
+                    <SelectItem value="medium">Medium or higher</SelectItem>
+                    <SelectItem value="high">High only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           {form.action === "block" && (
-            <div className="flex flex-col gap-1.5">
-              <Label>Only block when domain risk is at least</Label>
-              <Select
-                value={form.risk_threshold ?? "any"}
-                onValueChange={(v) =>
-                  setForm((f) => ({ ...f, risk_threshold: v === "any" ? null : (v as RiskThreshold) }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="any">Any (block on every match)</SelectItem>
-                  <SelectItem value="low">Low or higher</SelectItem>
-                  <SelectItem value="medium">Medium or higher</SelectItem>
-                  <SelectItem value="high">High only</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Only applies to matches with a domain to score (network traffic, including the
-                browser extension). A match with no domain - clipboard, print, a file path - is
-                flagged instead of blocked, since there's nothing to score.
-              </p>
+            <p className="-mt-2 text-xs text-muted-foreground">
+              Only applies to matches with a domain to score (network traffic, including the
+              browser extension). A match with no domain - clipboard, print, a file path - is
+              flagged instead of blocked, since there's nothing to score.
               {form.data_type === "credentials" && form.risk_threshold === null && (
-                <p className="text-xs text-destructive">
+                <span className="mt-1 block text-destructive">
                   Warning: with no risk threshold set, this blocks every login on every site -
                   set a threshold (e.g. High only) so this only interrupts genuinely risky ones.
-                </p>
+                </span>
               )}
-            </div>
+            </p>
           )}
 
           {form.data_type === "edm_dataset" && (
@@ -338,28 +350,30 @@ export function PolicyEditorDialog({
             </div>
           </div>
 
-          <div className="flex items-center justify-between rounded-md border px-3 py-2.5">
-            <div>
-              <p className="text-sm font-medium">Simulate mode</p>
-              <p className="text-xs text-muted-foreground">
-                Log matches without blocking, even if the action above is Block.
-              </p>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center justify-between rounded-md border px-3 py-2.5">
+              <div>
+                <p className="text-sm font-medium">Simulate mode</p>
+                <p className="text-xs text-muted-foreground">
+                  Log matches without blocking, even if the action above is Block.
+                </p>
+              </div>
+              <Switch
+                checked={form.simulate_mode}
+                onCheckedChange={(v) => setForm((f) => ({ ...f, simulate_mode: v }))}
+              />
             </div>
-            <Switch
-              checked={form.simulate_mode}
-              onCheckedChange={(v) => setForm((f) => ({ ...f, simulate_mode: v }))}
-            />
-          </div>
 
-          <div className="flex items-center justify-between rounded-md border px-3 py-2.5">
-            <div>
-              <p className="text-sm font-medium">Enabled</p>
-              <p className="text-xs text-muted-foreground">Disabled policies are never evaluated.</p>
+            <div className="flex items-center justify-between rounded-md border px-3 py-2.5">
+              <div>
+                <p className="text-sm font-medium">Enabled</p>
+                <p className="text-xs text-muted-foreground">Disabled policies are never evaluated.</p>
+              </div>
+              <Switch
+                checked={form.enabled}
+                onCheckedChange={(v) => setForm((f) => ({ ...f, enabled: v }))}
+              />
             </div>
-            <Switch
-              checked={form.enabled}
-              onCheckedChange={(v) => setForm((f) => ({ ...f, enabled: v }))}
-            />
           </div>
 
           <div className="rounded-md border bg-muted/40 p-3">
@@ -386,7 +400,7 @@ export function PolicyEditorDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="sticky bottom-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
