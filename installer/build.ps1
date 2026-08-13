@@ -46,6 +46,7 @@ Remove-Item -Recurse -Force build, dist -ErrorAction SilentlyContinue
 # every time, in every build up through v0.7.0 - the interactive `dotnet`/dev-mode testing never
 # caught it because it always ran against the unpackaged .venv, where the file is just on disk).
 & ".venv\Scripts\python.exe" -m PyInstaller --onefile --name CloakDLP-Console --distpath dist --workpath build --clean `
+    --icon "$installerDir\cloakdlp.ico" `
     --hidden-import passlib.handlers.bcrypt `
     --collect-data whois `
     run_server.py
