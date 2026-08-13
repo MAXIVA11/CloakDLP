@@ -51,18 +51,32 @@ async function getCredentials() {
 // browser/extension startup.
 const HEARTBEAT_ALARM = "cloakdlp-heartbeat";
 
+async function postHeartbeat(creds) {
+  return fetch(`${CONSOLE_URL}/api/agents/heartbeat`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Agent-Id": creds.agentId,
+      "X-Api-Key": creds.apiKey,
+    },
+    body: JSON.stringify({ policy_version: "extension-v1" }),
+  });
+}
+
 async function heartbeat() {
   try {
-    const creds = await getCredentials();
-    const res = await fetch(`${CONSOLE_URL}/api/agents/heartbeat`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Agent-Id": creds.agentId,
-        "X-Api-Key": creds.apiKey,
-      },
-      body: JSON.stringify({ policy_version: "extension-v1" }),
-    });
+    let creds = await getCredentials();
+    let res = await postHeartbeat(creds);
+
+    if (res.status === 401) {
+      // Stored credentials no longer valid (e.g. the console's database was reset); re-pair once.
+      // Mirrors the same recovery already done in reportIncident()/checkPasswordRisk() below -
+      // without it, a stale pairing left heartbeat() silently failing every 5 minutes forever,
+      // since this was the one caller that never re-registered.
+      await chrome.storage.local.remove(["agentId", "apiKey", "policyId", "passwordPolicyId"]);
+      creds = await selfRegister();
+      res = await postHeartbeat(creds);
+    }
     if (!res.ok) return;
 
     // Self-register only ever runs once, at first pairing; without this, a policy change made
