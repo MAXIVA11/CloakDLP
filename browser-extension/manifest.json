@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CloakDLP",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Detects a credit card number as you type it and can block submission. Only a redacted last-4 + domain go to your local console.",
   "permissions": ["storage", "alarms"],
   "host_permissions": ["<all_urls>", "http://127.0.0.1:8123/*"],
