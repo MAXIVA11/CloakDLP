@@ -264,12 +264,18 @@
     </Feature>
 
     <!-- REMOVE="ALL" is true for a genuine uninstall, false for a repair or a feature-level
-         change — this must only ever fire when the product is actually being removed.
+         change — but it is ALSO true for the old product's automatic removal that
+         MajorUpgrade performs as part of every upgrade (RemoveExistingProducts). Without the
+         UPGRADINGPRODUCTCODE check, every upgrade would silently delete ProgramData (the
+         database, JWT secret, agent credentials) before the new version even installs.
+         UPGRADINGPRODUCTCODE is populated by Windows Installer only during that upgrade-driven
+         removal, not during a standalone uninstall, so excluding it here restores the intended
+         "only on a real uninstall" behavior.
          Scheduled after RemoveFiles (~3500), well past CostFinalize, so
          [CommonAppDataFolder] is already resolved by the time this runs. -->
     <InstallExecuteSequence>
       <Custom Action="StopTrayApp" Before="InstallValidate" />
-      <Custom Action="RemoveProgramDataFolder" After="RemoveFiles" Condition='REMOVE="ALL"' />
+      <Custom Action="RemoveProgramDataFolder" After="RemoveFiles" Condition='REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE' />
       <Custom Action="LaunchTrayApp" After="InstallFinalize" Condition="NOT Installed" />
       <Custom Action="OpenConsoleInBrowser" After="LaunchTrayApp" Condition="NOT Installed" />
     </InstallExecuteSequence>
