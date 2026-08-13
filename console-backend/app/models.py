@@ -48,6 +48,7 @@ class DataType(str, enum.Enum):
     private_key = "private_key"
     edm_dataset = "edm_dataset"
     fingerprint_doc = "fingerprint_doc"
+    credentials = "credentials"
 
 
 class IncidentStatus(str, enum.Enum):

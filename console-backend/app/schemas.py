@@ -95,6 +95,7 @@ class AgentRegisterOut(BaseModel):
     hostname: str
     api_key: str  # returned once, plaintext, at registration time only
     default_credit_card_policy_id: str | None = None
+    default_password_policy_id: str | None = None
 
 
 class AgentOut(BaseModel):
@@ -111,6 +112,7 @@ class AgentOut(BaseModel):
     # current default policy changed; list_agents() gets the same value along for free but the
     # console UI doesn't use it.
     default_credit_card_policy_id: str | None = None
+    default_password_policy_id: str | None = None
 
 
 class AgentHeartbeat(BaseModel):

@@ -128,6 +128,55 @@
     }
   }
 
+  // Unlike showBlockedWarning() above (a passive, auto-dismissing notice), this requires an
+  // explicit choice: a domain-risk heuristic is a probabilistic signal, not a certain match the
+  // way a Luhn-valid card number is, so silently eating the login the same way card submissions
+  // get blocked risks locking someone out of a perfectly legitimate site on a false positive.
+  // "Continue anyway" replays via form.submit() for the same reason the card-block path does -
+  // it doesn't redispatch a "submit" event, so this can't loop back into this same listener.
+  function showPasswordRiskConfirm(reason, form) {
+    const overlay = document.createElement("div");
+    overlay.style.cssText =
+      "position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.55);" +
+      "display:flex;align-items:center;justify-content:center;";
+
+    const box = document.createElement("div");
+    box.style.cssText =
+      "background:#1a1a1a;color:#fff;padding:22px 26px;border-radius:12px;max-width:420px;" +
+      "font:14px/1.5 -apple-system,'Segoe UI',sans-serif;box-shadow:0 20px 60px rgba(0,0,0,.5);";
+
+    const msg = document.createElement("p");
+    msg.textContent = `CloakDLP: this site looks risky (${reason}). Are you sure you want to submit your password here?`;
+    msg.style.cssText = "margin:0 0 18px;";
+
+    const btnRow = document.createElement("div");
+    btnRow.style.cssText = "display:flex;gap:10px;justify-content:flex-end;";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.textContent = "Cancel";
+    cancelBtn.style.cssText =
+      "padding:8px 16px;border-radius:6px;border:1px solid #444;background:transparent;" +
+      "color:#fff;cursor:pointer;font:inherit;";
+    cancelBtn.addEventListener("click", () => overlay.remove());
+
+    const continueBtn = document.createElement("button");
+    continueBtn.textContent = "Continue anyway";
+    continueBtn.style.cssText =
+      "padding:8px 16px;border-radius:6px;border:none;background:#c0392b;color:#fff;" +
+      "cursor:pointer;font:inherit;";
+    continueBtn.addEventListener("click", () => {
+      overlay.remove();
+      form.submit();
+    });
+
+    btnRow.appendChild(cancelBtn);
+    btnRow.appendChild(continueBtn);
+    box.appendChild(msg);
+    box.appendChild(btnRow);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+  }
+
   function isTextLikeInput(el) {
     if (el instanceof HTMLTextAreaElement) return true;
     if (!(el instanceof HTMLInputElement)) return false;
@@ -173,15 +222,38 @@
       for (const el of form.elements) {
         if (isTextLikeInput(el)) matches.push(...findCardNumbers(el.value));
       }
-      if (matches.length === 0) return;
+
+      // Password-risk checking is top-frame only, unlike card detection above: it needs to show
+      // an interactive confirm dialog for the user to actually make a choice, and a hidden or
+      // sliver-sized cross-origin iframe (an embedded login widget, an OAuth popup frame) is
+      // nowhere to put that. Rather than block with no way to override, this just doesn't
+      // intercept in that case at all - the same fail-open posture used everywhere else here.
+      const hasPassword =
+        window.top === window.self &&
+        Array.from(form.elements).some(
+          (el) => el instanceof HTMLInputElement && el.type === "password" && el.value.length > 0,
+        );
+
+      if (matches.length === 0 && !hasPassword) return;
 
       event.preventDefault();
       event.stopImmediatePropagation();
 
-      Promise.all(matches.map(checkShouldBlock))
-        .then((results) => {
-          if (results.some(Boolean)) {
+      const cardCheck = Promise.all(matches.map(checkShouldBlock)).then((results) => results.some(Boolean));
+      const passwordCheck = hasPassword
+        ? chrome.runtime.sendMessage({
+            type: "check-password-risk",
+            domain: window.location.hostname,
+            pageUrl: pageUrl(),
+          })
+        : Promise.resolve({ blocked: false });
+
+      Promise.all([cardCheck, passwordCheck])
+        .then(([cardBlocked, passwordResult]) => {
+          if (cardBlocked) {
             showBlockedWarning();
+          } else if (passwordResult?.blocked) {
+            showPasswordRiskConfirm(passwordResult.reason, form);
           } else {
             form.submit();
           }
