@@ -170,8 +170,16 @@ export function PolicyEditorDialog({
           max-height/scroll of its own - content simply rendered off the top and bottom of the
           screen with nothing to scroll, leaving the Save button unreachable. max-h + overflow-y
           here is a hard backstop for whatever's still too tall on a given screen; sticky on the
-          footer keeps Save/Cancel pinned in view even while the body above it scrolls. */}
-      <DialogContent className="flex max-h-[85vh] max-w-3xl flex-col overflow-y-auto">
+          footer keeps Save/Cancel pinned in view even while the body above it scrolls.
+
+          The width override below is deliberately `sm:max-w-4xl`, not bare `max-w-4xl`: the
+          shared DialogContent already ships `sm:max-w-sm`, and tailwind-merge only dedupes
+          classes that share the exact same variant - a bare max-w-4xl and a variant-scoped
+          sm:max-w-sm aren't seen as conflicting, so both survive into the class list and
+          sm:max-w-sm wins the CSS cascade at any real desktop width. Matching the variant here
+          is what actually lets this override take effect (confirmed live: without this, the
+          dialog silently stayed at max-w-sm/384px on every screen size that matters). */}
+      <DialogContent className="flex max-h-[85vh] w-full flex-col overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>{policy ? "Edit policy" : "New policy"}</DialogTitle>
           <DialogDescription>
