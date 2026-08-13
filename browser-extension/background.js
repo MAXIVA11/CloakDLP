@@ -168,12 +168,26 @@ async function reportIncident(redactedSnippet, pageUrl) {
 // at all - it's a plain domain lookup, fired by content.js on every top-frame navigation, before
 // the user has typed anything. Reuses the same score_domain() the console already runs at
 // incident time (URLhaus + WHOIS age), just exposed as a standalone check.
+async function fetchSiteRisk(creds, domain) {
+  return fetch(`${CONSOLE_URL}/api/risk/check?domain=${encodeURIComponent(domain)}`, {
+    headers: { "X-Agent-Id": creds.agentId, "X-Api-Key": creds.apiKey },
+  });
+}
+
 async function checkSiteRisk(domain) {
   try {
-    const creds = await getCredentials();
-    const res = await fetch(`${CONSOLE_URL}/api/risk/check?domain=${encodeURIComponent(domain)}`, {
-      headers: { "X-Agent-Id": creds.agentId, "X-Api-Key": creds.apiKey },
-    });
+    let creds = await getCredentials();
+    let res = await fetchSiteRisk(creds, domain);
+
+    if (res.status === 401) {
+      // Same stale-pairing recovery as every other call in this file - without it, this is the
+      // one call that gates both the proactive banner AND checkPasswordRisk() below, so a single
+      // 401 here silently kills the entire password-risk flow (no incident, no interstitial)
+      // until the next 5-minute heartbeat happens to fix creds on its own.
+      await chrome.storage.local.remove(["agentId", "apiKey", "policyId", "passwordPolicyId"]);
+      creds = await selfRegister();
+      res = await fetchSiteRisk(creds, domain);
+    }
     if (!res.ok) return null;
     return await res.json();
   } catch {
