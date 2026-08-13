@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.bootstrap import DEFAULT_POLICY_NAME
+from app.bootstrap import DEFAULT_PASSWORD_POLICY_NAME, DEFAULT_POLICY_NAME
 from app.config import settings
 from app.database import get_db
 from app.deps import get_current_agent, get_current_user, require_loopback
@@ -58,6 +58,7 @@ def _agent_out(agent: Agent, db: Session) -> AgentOut:
         # current default changed - disabled, replaced, or just edited - no matter how long it
         # stayed paired. Every heartbeat carries the live answer instead.
         default_credit_card_policy_id=_default_credit_card_policy_id(db),
+        default_password_policy_id=_default_password_policy_id(db),
     )
 
 
@@ -72,14 +73,22 @@ def _channel_status(agent: Agent | None) -> ChannelStatus:
     )
 
 
-def _default_credit_card_policy_id(db: Session) -> str | None:
+def _default_policy_id(db: Session, data_type: DataType, preferred_name: str) -> str | None:
     policy = (
         db.query(Policy)
-        .filter(Policy.data_type == DataType.credit_card, Policy.enabled.is_(True))
-        .order_by((Policy.name != DEFAULT_POLICY_NAME).asc(), Policy.created_at.asc())
+        .filter(Policy.data_type == data_type, Policy.enabled.is_(True))
+        .order_by((Policy.name != preferred_name).asc(), Policy.created_at.asc())
         .first()
     )
     return policy.id if policy else None
+
+
+def _default_credit_card_policy_id(db: Session) -> str | None:
+    return _default_policy_id(db, DataType.credit_card, DEFAULT_POLICY_NAME)
+
+
+def _default_password_policy_id(db: Session) -> str | None:
+    return _default_policy_id(db, DataType.credentials, DEFAULT_PASSWORD_POLICY_NAME)
 
 
 @router.get("", response_model=list[AgentOut], dependencies=[Depends(get_current_user)])
@@ -153,6 +162,7 @@ def register_agent(payload: AgentRegister, db: Session = Depends(get_db)):
         hostname=agent.hostname,
         api_key=api_key,
         default_credit_card_policy_id=_default_credit_card_policy_id(db),
+        default_password_policy_id=_default_password_policy_id(db),
     )
 
 
@@ -229,6 +239,7 @@ def self_register_agent(payload: AgentRegister, db: Session = Depends(get_db)):
         hostname=agent.hostname,
         api_key=api_key,
         default_credit_card_policy_id=_default_credit_card_policy_id(db),
+        default_password_policy_id=_default_password_policy_id(db),
     )
 
 

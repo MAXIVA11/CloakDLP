@@ -8,7 +8,8 @@ export type DataType =
   | "api_key"
   | "private_key"
   | "edm_dataset"
-  | "fingerprint_doc";
+  | "fingerprint_doc"
+  | "credentials";
 export type IncidentStatus = "open" | "false_positive" | "resolved";
 export type AgentStatus = "online" | "offline";
 

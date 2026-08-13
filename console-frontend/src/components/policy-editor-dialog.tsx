@@ -41,6 +41,7 @@ const DETECTION_METHOD_BY_DATA_TYPE: Record<DataType, DetectionMethod> = {
   private_key: "regex",
   edm_dataset: "edm",
   fingerprint_doc: "fingerprint",
+  credentials: "regex",
 };
 
 const ALL_CHANNELS: Channel[] = ["file", "clipboard", "print", "network"];
@@ -52,6 +53,7 @@ const DATA_TYPE_LABELS: Record<DataType, string> = {
   private_key: "Private key (regex)",
   edm_dataset: "Exact data match",
   fingerprint_doc: "Document fingerprint",
+  credentials: "Login credentials on a risky site",
 };
 
 function emptyForm(): PolicyInput {
@@ -250,6 +252,12 @@ export function PolicyEditorDialog({
                 browser extension). A match with no domain - clipboard, print, a file path - is
                 flagged instead of blocked, since there's nothing to score.
               </p>
+              {form.data_type === "credentials" && form.risk_threshold === null && (
+                <p className="text-xs text-destructive">
+                  Warning: with no risk threshold set, this blocks every login on every site -
+                  set a threshold (e.g. High only) so this only interrupts genuinely risky ones.
+                </p>
+              )}
             </div>
           )}
 

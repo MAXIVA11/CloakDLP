@@ -22,13 +22,18 @@ async function selfRegister() {
   if (!res.ok) throw new Error(`self-register failed: HTTP ${res.status}`);
 
   const data = await res.json();
-  const creds = { agentId: data.id, apiKey: data.api_key, policyId: data.default_credit_card_policy_id ?? null };
+  const creds = {
+    agentId: data.id,
+    apiKey: data.api_key,
+    policyId: data.default_credit_card_policy_id ?? null,
+    passwordPolicyId: data.default_password_policy_id ?? null,
+  };
   await chrome.storage.local.set(creds);
   return creds;
 }
 
 async function getCredentials() {
-  const stored = await chrome.storage.local.get(["agentId", "apiKey", "policyId"]);
+  const stored = await chrome.storage.local.get(["agentId", "apiKey", "policyId", "passwordPolicyId"]);
   // policyId alone is not a sign of being unpaired: heartbeat() below can legitimately set it to
   // null (the console currently has no enabled credit-card policy at all), and treating that as
   // "not paired yet" would re-self-register on every single incident report from then on,
@@ -69,6 +74,10 @@ async function heartbeat() {
     const newPolicyId = data.default_credit_card_policy_id ?? null;
     if (newPolicyId !== creds.policyId) {
       await chrome.storage.local.set({ policyId: newPolicyId });
+    }
+    const newPasswordPolicyId = data.default_password_policy_id ?? null;
+    if (newPasswordPolicyId !== creds.passwordPolicyId) {
+      await chrome.storage.local.set({ passwordPolicyId: newPasswordPolicyId });
     }
   } catch {
     // console not running yet; fine, we'll try again next alarm or the next card detection
@@ -160,6 +169,57 @@ async function checkSiteRisk(domain) {
   }
 }
 
+async function postPasswordIncident(creds, pageUrl) {
+  return fetch(`${CONSOLE_URL}/api/incidents`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Agent-Id": creds.agentId,
+      "X-Api-Key": creds.apiKey,
+    },
+    body: JSON.stringify({
+      policy_id: creds.passwordPolicyId,
+      channel: "network",
+      action_taken: "flag",
+      confidence: 1.0,
+      // Never the password itself, or any fragment derived from it - there's no safe partial
+      // representation the way a card's last-4 digits are. Only the fact that a password field
+      // was submitted is ever recorded.
+      redacted_snippet: "[password - not recorded]",
+      rule_id: "browser-extension-password-entry-v1",
+      source_identifier: pageUrl,
+    }),
+  });
+}
+
+// Fires only when a password field was actually submitted (content.js's job to determine that),
+// and only escalates to an incident report at all if the domain already scores "high" - unlike
+// card detection, which reports every single match unconditionally, reporting every login on
+// every site would be enormous noise for something that happens on nearly every page visit.
+async function checkPasswordRisk(domain, pageUrl) {
+  const risk = await checkSiteRisk(domain);
+  if (!risk || risk.level !== "high") return { blocked: false };
+
+  try {
+    let creds = await getCredentials();
+    if (!creds.passwordPolicyId) return { blocked: false, reason: risk.reason };
+
+    let res = await postPasswordIncident(creds, pageUrl);
+    if (res.status === 401) {
+      await chrome.storage.local.remove(["agentId", "apiKey", "policyId", "passwordPolicyId"]);
+      creds = await selfRegister();
+      if (!creds.passwordPolicyId) return { blocked: false, reason: risk.reason };
+      res = await postPasswordIncident(creds, pageUrl);
+    }
+    if (!res.ok) return { blocked: false, reason: risk.reason };
+
+    const data = await res.json();
+    return { blocked: data.blocked === true, reason: risk.reason };
+  } catch {
+    return { blocked: false, reason: risk.reason };
+  }
+}
+
 // chrome.storage.session survives navigations within the same browser session but clears on
 // browser restart - exactly the lifetime wanted for "don't nag about the same site again after
 // the user has already seen and dismissed the warning once."
@@ -203,5 +263,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "dismiss-site-warning") {
     chrome.storage.session.set({ [dismissedKey(message.domain)]: true });
     return false;
+  }
+  if (message?.type === "check-password-risk") {
+    // Deliberately NOT gated by isDismissed() - dismissing the passive top-of-page banner means
+    // "I saw the warning," not "I consent to entering my password here." The two are independent.
+    checkPasswordRisk(message.domain, message.pageUrl).then(sendResponse);
+    return true;
   }
 });
