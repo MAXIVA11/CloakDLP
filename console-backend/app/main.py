@@ -9,7 +9,7 @@ from app.bootstrap import ensure_default_policy
 from app.config import settings
 from app.database import Base, engine
 from app.migrations import run_migrations
-from app.routers import agents, auth, dashboard, edm, fingerprints, incidents, policies, ws
+from app.routers import agents, auth, dashboard, edm, fingerprints, incidents, policies, risk, ws
 
 Base.metadata.create_all(bind=engine)
 run_migrations()
@@ -39,6 +39,7 @@ app.include_router(incidents.router)
 app.include_router(edm.router)
 app.include_router(fingerprints.router)
 app.include_router(dashboard.router)
+app.include_router(risk.router)
 app.include_router(ws.router)
 
 

@@ -94,6 +94,40 @@
     setTimeout(() => banner.remove(), 6000);
   }
 
+  // Proactive warning, fired once per page load, before the user has typed anything - the whole
+  // point being to catch a risky site *before* a card number ever gets entered, not just react
+  // after the fact like the input/submit listeners below. Only the top frame checks or shows
+  // this; an ad or payment iframe warning about its own (often CDN/tracking) domain would be
+  // both noisy and the wrong domain to be warning about anyway.
+  function showSiteRiskWarning(reason, domain) {
+    const banner = document.createElement("div");
+    banner.style.cssText =
+      "position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:2147483647;" +
+      "background:#3a1f00;color:#ffd580;padding:12px 40px 12px 20px;border-radius:8px;" +
+      "font:14px/1.4 -apple-system,'Segoe UI',sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.35);" +
+      "max-width:90vw;text-align:left;border:1px solid #7a4a00;";
+    banner.textContent = `CloakDLP: this site looks risky (${reason}). Be cautious before entering any personal or payment details.`;
+
+    const closeBtn = document.createElement("span");
+    closeBtn.textContent = "×";
+    closeBtn.style.cssText = "position:absolute;top:8px;right:14px;cursor:pointer;font-size:18px;line-height:1;";
+    closeBtn.addEventListener("click", () => {
+      banner.remove();
+      chrome.runtime.sendMessage({ type: "dismiss-site-warning", domain });
+    });
+    banner.appendChild(closeBtn);
+    document.body.appendChild(banner);
+  }
+
+  if (window.top === window.self) {
+    const domain = window.location.hostname;
+    if (domain) {
+      chrome.runtime.sendMessage({ type: "check-site-risk", domain }).then((response) => {
+        if (response?.warn) showSiteRiskWarning(response.reason, domain);
+      });
+    }
+  }
+
   function isTextLikeInput(el) {
     if (el instanceof HTMLTextAreaElement) return true;
     if (!(el instanceof HTMLInputElement)) return false;

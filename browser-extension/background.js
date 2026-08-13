@@ -141,6 +141,37 @@ async function reportIncident(redactedSnippet, pageUrl) {
   }
 }
 
+// Proactive site-risk warning: unlike reportIncident() above, this never touches a card number
+// at all - it's a plain domain lookup, fired by content.js on every top-frame navigation, before
+// the user has typed anything. Reuses the same score_domain() the console already runs at
+// incident time (URLhaus + WHOIS age), just exposed as a standalone check.
+async function checkSiteRisk(domain) {
+  try {
+    const creds = await getCredentials();
+    const res = await fetch(`${CONSOLE_URL}/api/risk/check?domain=${encodeURIComponent(domain)}`, {
+      headers: { "X-Agent-Id": creds.agentId, "X-Api-Key": creds.apiKey },
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    // Console not running, or the extension isn't paired yet; fail open (no warning) rather
+    // than block the page load on this, matching the fail-open posture used everywhere else.
+    return null;
+  }
+}
+
+// chrome.storage.session survives navigations within the same browser session but clears on
+// browser restart - exactly the lifetime wanted for "don't nag about the same site again after
+// the user has already seen and dismissed the warning once."
+function dismissedKey(domain) {
+  return `dismissed:${domain}`;
+}
+
+async function isDismissed(domain) {
+  const stored = await chrome.storage.session.get(dismissedKey(domain));
+  return stored[dismissedKey(domain)] === true;
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "card-entry-detected") {
     // Fire-and-forget: reported while typing, purely for visibility, no submission to hold up.
@@ -153,5 +184,24 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     // for the async sendResponse below (MV3 service workers can't just return a value here).
     reportIncident(message.redactedSnippet, message.pageUrl).then((blocked) => sendResponse({ blocked }));
     return true;
+  }
+  if (message?.type === "check-site-risk") {
+    (async () => {
+      if (await isDismissed(message.domain)) {
+        sendResponse({ warn: false });
+        return;
+      }
+      const result = await checkSiteRisk(message.domain);
+      // Only "high" surfaces a warning - "medium"/"low"/"unknown" all stay silent. Domain age is
+      // a coarse signal (a brand-new legitimate small business looks identical to a brand-new
+      // scam domain under this heuristic), so this only interrupts the page for either an actual
+      // URLhaus listing or a domain young enough that the false-positive rate is worth it.
+      sendResponse(result && result.level === "high" ? { warn: true, reason: result.reason } : { warn: false });
+    })();
+    return true;
+  }
+  if (message?.type === "dismiss-site-warning") {
+    chrome.storage.session.set({ [dismissedKey(message.domain)]: true });
+    return false;
   }
 });

@@ -229,3 +229,12 @@ class DashboardStats(BaseModel):
     agents_total: int
     false_positive_rate: float
     channel_breakdown: list[ChannelBreakdown]
+
+
+# --- Site risk ---
+
+class RiskCheckOut(BaseModel):
+    domain: str
+    score: int
+    level: str
+    reason: str
