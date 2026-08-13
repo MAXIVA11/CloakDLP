@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CloakDLP Privacy Policy</title>
+<meta name="description" content="What the CloakDLP browser extension does and does not do with the data it reads.">
+<link rel="icon" href="https://raw.githubusercontent.com/MAXIVA11/CloakDLP/main/docs/assets/logo.png">
+<style>
+  :root {
+    --bg: #0a0c0f;
+    --bg-raised: #14171c;
+    --border: #23272e;
+    --text: #e8eaed;
+    --text-dim: #9aa0aa;
+    --accent: #4f8cff;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg); color: var(--text);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 24px 80px; }
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 24px 0; border-bottom: 1px solid var(--border); margin-bottom: 40px;
+  }
+  header a.brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--text); font-weight: 700; font-size: 18px; }
+  header img { width: 34px; height: 34px; display: block; }
+  h1 { font-size: 30px; letter-spacing: -0.01em; margin: 0 0 8px; }
+  .updated { color: var(--text-dim); font-size: 14px; margin: 0 0 40px; }
+  h2 { font-size: 19px; margin: 40px 0 12px; }
+  p, li { color: #cdd1d8; }
+  ul { padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  .callout {
+    background: var(--bg-raised); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px 22px; margin: 24px 0;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+  code { background: var(--bg-raised); padding: 2px 6px; border-radius: 5px; font-size: 0.9em; }
+  footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--text-dim); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="brand" href="/CloakDLP/">
+      <img src="https://raw.githubusercontent.com/MAXIVA11/CloakDLP/main/docs/assets/logo.png" alt="CloakDLP">
+      CloakDLP
+    </a>
+  </header>
+
+  <h1>Privacy Policy</h1>
+  <p class="updated">Last updated: August 2026. Applies to the CloakDLP browser extension and desktop application.</p>
+
+  <div class="callout">
+    <p><strong>In one sentence:</strong> CloakDLP runs entirely on your own computer, has no server of its own anywhere, and the full card number you type never leaves your browser under any circumstances.</p>
+  </div>
+
+  <h2>What the extension reads</h2>
+  <p>
+    The extension's content script watches text-like form fields on the pages you visit for a
+    Luhn-valid credit card number as you type. This requires the extension to be able to run on
+    any website, since a checkout form can appear on any domain, not a fixed list known in
+    advance. That's why it requests broad host permissions.
+  </p>
+  <p>
+    Reading is not the same as sending. The content script only ever acts on what it reads locally,
+    inside your own browser.
+  </p>
+
+  <h2>What actually gets sent, and to where</h2>
+  <p>When a match is found, exactly three things are sent, and nowhere except your own machine:</p>
+  <ul>
+    <li>The card number redacted to its last 4 digits (e.g. <code>************4242</code>). The full number is discarded immediately after the redaction happens, in memory, before anything is sent anywhere.</li>
+    <li>The domain of the page you were on.</li>
+    <li>A confidence score and an internal rule identifier, used only to display the match in your own console.</li>
+  </ul>
+  <p>
+    All of it goes to <code>http://127.0.0.1:8123</code>, a web console that CloakDLP installs and
+    runs locally on your own PC. That address only resolves to the computer the extension is
+    running on. There is no CloakDLP-operated server anywhere, and no third party ever receives
+    this data, because there is nowhere else for it to go.
+  </p>
+
+  <h2>What CloakDLP does not do</h2>
+  <ul>
+    <li>Never transmits, stores, or has access to a full, unredacted card number.</li>
+    <li>No analytics, no advertising, no tracking of your browsing beyond the local detection described above.</li>
+    <li>No account, no sign-in, no cloud sync.</li>
+    <li>Nothing is ever sold, shared, or shown to anyone but you.</li>
+  </ul>
+
+  <h2>Outbound network requests the desktop console makes</h2>
+  <p>
+    The local console (not the extension itself) makes two kinds of outbound calls, both for a
+    domain risk score shown next to a match, and both are simple lookups, not data uploads:
+  </p>
+  <ul>
+    <li>A check against the <a href="https://urlhaus.abuse.ch/" target="_blank" rel="noopener">URLhaus</a> malware/phishing hostname blocklist (free, no account, no API key).</li>
+    <li>A standard WHOIS lookup for the destination domain's registration age.</li>
+  </ul>
+  <p>Neither of these ever includes any card data, redacted or otherwise, only the destination domain name.</p>
+
+  <h2>Data retention and deletion</h2>
+  <p>
+    Everything CloakDLP records lives in a database file on your own machine, under your own
+    control. You can delete an incident, delete the whole database, or uninstall CloakDLP entirely
+    at any time; nothing persists anywhere else once you do.
+  </p>
+
+  <h2>Open source</h2>
+  <p>
+    Every claim on this page is independently verifiable: CloakDLP is fully open source under the
+    MIT license. The extension's source is at
+    <a href="https://github.com/MAXIVA11/CloakDLP/tree/main/browser-extension" target="_blank" rel="noopener">browser-extension/</a>
+    and the full project at
+    <a href="https://github.com/MAXIVA11/CloakDLP" target="_blank" rel="noopener">github.com/MAXIVA11/CloakDLP</a>.
+  </p>
+
+  <h2>Questions</h2>
+  <p>
+    Open an issue at
+    <a href="https://github.com/MAXIVA11/CloakDLP/issues" target="_blank" rel="noopener">github.com/MAXIVA11/CloakDLP/issues</a>.
+  </p>
+
+  <footer>CloakDLP &middot; MIT licensed &middot; <a href="/CloakDLP/">Back to homepage</a></footer>
+</div>
+</body>
+</html>
