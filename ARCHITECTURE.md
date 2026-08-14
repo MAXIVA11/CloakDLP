@@ -156,6 +156,74 @@ already-visible row fills in live:
 Both sources were chosen specifically because they need no account, no API key, no paid tier -
 consistent with everything else in this project that's been kept to "works out of the box."
 
+### Proactive site-risk warning and password protection
+
+The domain scoring above only ever ran *after* a card number was already caught mid-submission.
+`GET /api/risk/check` (`app/routers/risk.py`) exposes the same `score_domain()` as a standalone,
+agent-authenticated lookup so the browser extension can call it on its own, before the user has
+typed anything:
+
+- **On navigation** (`content.js`, top frame only): fires `check-site-risk` the moment the page
+  loads. A "high" result shows a dismissible banner; the dismissal is stored in
+  `chrome.storage.session` (clears on browser restart, matching "don't nag again this session")
+  and is deliberately domain-scoped only - "medium"/"low"/"unknown" all stay silent, since domain
+  age alone can't tell a brand-new legitimate small business from a brand-new scam.
+- **On password submission** (`hasPassword` in the form's `submit` listener): only escalates to
+  an actual incident if the domain *already* scored "high" - unlike card detection, which reports
+  every match unconditionally, reporting every login on every site visited would be enormous
+  noise for something that happens on nearly every page. Governed by a second, separate policy
+  ("Login Credential Entry", `data_type=credentials`, also Log Only by default -
+  `app/bootstrap.py::ensure_default_password_policy`) so a personal install can enable card
+  blocking without also blocking logins, or vice versa.
+- **Blocking here is a confirmation, not a silent stop**: `content.js::showPasswordRiskConfirm`
+  shows "this site looks risky, are you sure?" with Cancel / Continue anyway, deliberately
+  different from the card path's unconditional `showBlockedWarning`. A domain-risk score is a
+  heuristic, not a certain match the way a Luhn-valid card number is; silently eating a login the
+  same way a card submission gets blocked risks locking someone out of a perfectly legitimate
+  site on a false positive. The password itself is never inspected or transmitted at any point -
+  only the fact that one was submitted, and only when the domain already looked risky.
+
+### Incident reports and data retention
+
+`app/routers/reports.py` and `app/routers/app_settings.py`:
+
+- **CSV export** (`/api/reports/incidents.csv`) - human-readable headers, split date/time
+  columns, title-cased values, and a `utf-8-sig` (BOM-prefixed) encoding specifically so Excel
+  renders it as UTF-8 instead of guessing ANSI and mangling anything outside plain ASCII.
+- **PDF export** (`/api/reports/incidents.pdf`, `app/reports_pdf.py`) - a branded report built
+  with `reportlab` (summary cards, styled incident table, logo/colors matching the console's own
+  theme). The logo asset ships as a PyInstaller `datas` entry (`CloakDLP-Console.spec`) and is
+  located via `sys._MEIPASS` when frozen, not a path relative to `__file__` - in a onefile build,
+  this module's own bytecode lives inside the zipped `PYZ` archive, not on disk as a real file, so
+  only assets explicitly declared as `datas` are extractable at a real filesystem path at runtime.
+- **Retention** (`app/retention.py`) - an optional, off-by-default (`None` = keep forever)
+  per-install setting; a background sweep (`run_retention_loop`, started from `main.py`'s
+  `lifespan`) purges incidents older than the configured window every 6 hours, and saving a new
+  setting also purges immediately rather than waiting for the next sweep. Policies, agents, and
+  datasets are never touched - this only ever prunes incident history.
+
+### Incident deduplication
+
+A single real card or password submission legitimately reports to `POST /api/incidents` more
+than once: the browser extension's `change` listener reports for visibility the moment a field is
+done being edited (in case the form is abandoned), and the `submit` listener reports again
+unconditionally (needed to get a fresh, authoritative block decision, since the policy backing it
+can change at any moment between the two calls - see "Blocking" below). Without dedup, one real
+attempt produced two-plus rows in the incident log.
+
+`create_incident` (`app/routers/incidents.py`) merges a repeat into the existing row instead of
+inserting a new one when it matches an existing **open** incident on `agent_id`, `channel`,
+`rule_id`, and `redacted_snippet`, within a short (`DEDUP_WINDOW_SECONDS = 30`) trailing window -
+updating `action_taken`/`confidence`/`extra`/`timestamp` in place and broadcasting
+`incident.updated` rather than `incident.created` (the frontend already handled this event, from
+the risk-score-backfill path above, so no frontend change was needed). `channel` is part of the
+key deliberately, found the hard way: an earlier version keyed only on
+`agent_id`/`rule_id`/`redacted_snippet`, which meant a clipboard copy and an unrelated file scan
+landing within the same 30 seconds - two genuinely different real events - could match on nothing
+but a shared card ending and silently merge into one row, overwriting the earlier channel. Caught
+by testing the clipboard/file/print channels back-to-back, not by the original card-entry test
+that motivated the dedup window in the first place.
+
 ### Blocking
 
 `Policy.action` has always had a `block` value and the policy editor has always let you pick it,
