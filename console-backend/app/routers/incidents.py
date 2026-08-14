@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
@@ -6,12 +7,21 @@ from sqlalchemy.orm import Session
 
 from app.database import SessionLocal, get_db
 from app.deps import get_current_agent, get_current_user
-from app.models import Action, Agent, Incident, Policy
+from app.models import Action, Agent, Incident, IncidentStatus, Policy
 from app.risk_scoring import score_domain
 from app.schemas import IncidentCreate, IncidentOut, IncidentStatusUpdate
 from app.websocket_manager import incident_manager
 
 router = APIRouter(prefix="/api/incidents", tags=["incidents"])
+
+# A single real card-entry attempt legitimately reports twice - once while typing (for
+# visibility, in case the form is abandoned) and again at submit time (to get a fresh,
+# authoritative block decision, since the policy backing it can change between the two). Without
+# this window, both calls insert their own row, so one real attempt shows up as two-plus
+# incidents in the log. Anything landing within this many seconds of an existing open incident
+# for the same agent/rule/redacted value is treated as the same attempt and merges into it
+# instead of stacking a new row.
+DEDUP_WINDOW_SECONDS = 30
 
 
 @router.get("", response_model=list[IncidentOut], dependencies=[Depends(get_current_user)])
@@ -125,6 +135,36 @@ async def create_incident(
     data["action_taken"] = action_taken
     if risk_extra:
         data["extra"] = {**data.get("extra", {}), **risk_extra}
+
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=DEDUP_WINDOW_SECONDS)
+    duplicate = (
+        db.query(Incident)
+        .filter(
+            Incident.agent_id == agent.id,
+            Incident.rule_id == payload.rule_id,
+            Incident.redacted_snippet == payload.redacted_snippet,
+            Incident.status == IncidentStatus.open,
+            Incident.timestamp >= cutoff,
+        )
+        .order_by(Incident.timestamp.desc())
+        .first()
+    )
+
+    if duplicate is not None:
+        # Re-report of the same attempt (typing, then submit) - update in place with the fresh
+        # decision rather than inserting a second row for what's really one event.
+        duplicate.action_taken = data["action_taken"]
+        duplicate.confidence = data["confidence"]
+        duplicate.source_identifier = data["source_identifier"]
+        duplicate.extra = {**duplicate.extra, **data.get("extra", {})}
+        duplicate.timestamp = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(duplicate)
+
+        out = IncidentOut.model_validate(duplicate)
+        await incident_manager.broadcast_json({"type": "incident.updated", "incident": out.model_dump()})
+        return duplicate
+
     incident = Incident(agent_id=agent.id, **data)
     db.add(incident)
     db.commit()

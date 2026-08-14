@@ -183,8 +183,15 @@
     return ["text", "tel", "search", ""].includes(el.type);
   }
 
+  // "change" (fires on blur/commit), not "input" (fires per keystroke): scanning on every
+  // keystroke means a long card number is checked at every intermediate length while it's being
+  // typed, and a partial prefix can independently pass the Luhn check by coincidence even though
+  // it was never the actual card - e.g. typing 4242424242424242 one digit at a time reports a
+  // phantom match at the 15-digit mark, a separate number that never really existed. "change"
+  // only evaluates the field once it's done being edited, so there's exactly one candidate to
+  // check: the value the user actually left behind.
   document.addEventListener(
-    "input",
+    "change",
     (event) => {
       const el = event.target;
       if (isTextLikeInput(el)) scanValue(el.value);
