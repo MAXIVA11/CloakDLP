@@ -1,26 +1,53 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Download } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { ChannelBreakdown } from "@/components/channel-breakdown";
 import { PageHeader } from "@/components/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getDashboardStats, listIncidents, listPolicies } from "@/lib/api";
+import {
+  ApiError,
+  exportIncidentsCsv,
+  getDashboardStats,
+  getSettings,
+  listIncidents,
+  listPolicies,
+  updateSettings,
+} from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import type { DashboardStats, Incident, Policy } from "@/lib/types";
+import type { AppSettings, DashboardStats, Incident, Policy } from "@/lib/types";
+
+// "Forever" is represented as null on the wire; the Select needs a real string value for that
+// option, so it round-trips through this sentinel at the UI boundary only.
+const FOREVER = "forever";
+const RETENTION_OPTIONS = [
+  { value: FOREVER, label: "Keep forever" },
+  { value: "30", label: "30 days" },
+  { value: "90", label: "90 days" },
+  { value: "180", label: "180 days" },
+  { value: "365", label: "365 days" },
+];
 
 export default function ReportsPage() {
   const { token } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [incidents, setIncidents] = useState<Incident[] | null>(null);
   const [policies, setPolicies] = useState<Policy[]>([]);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [savingRetention, setSavingRetention] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (!token) return;
     getDashboardStats(token).then(setStats).catch(() => {});
     listIncidents(token, {}).then(setIncidents).catch(() => setIncidents([]));
     listPolicies(token).then(setPolicies).catch(() => {});
+    getSettings(token).then(setSettings).catch(() => {});
   }, [token]);
 
   const byPolicy = useMemo(() => {
@@ -43,9 +70,60 @@ export default function ReportsPage() {
     );
   }, [incidents]);
 
+  const handleExport = useCallback(async () => {
+    if (!token) return;
+    setExporting(true);
+    try {
+      const blob = await exportIncidentsCsv(token);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `cloakdlp-incidents-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Couldn't export incidents");
+    } finally {
+      setExporting(false);
+    }
+  }, [token]);
+
+  async function handleRetentionChange(value: string) {
+    if (!token) return;
+    const incident_retention_days = value === FOREVER ? null : Number(value);
+    setSavingRetention(true);
+    try {
+      const updated = await updateSettings(token, { incident_retention_days });
+      setSettings(updated);
+      // The save applies immediately server-side (see routers/app_settings.py), so a shorter
+      // window may have just purged incidents this page is already showing - refresh in step.
+      listIncidents(token, {}).then(setIncidents).catch(() => {});
+      toast.success(
+        incident_retention_days === null
+          ? "Incidents will be kept forever"
+          : `Incidents older than ${incident_retention_days} days will be purged`,
+      );
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Couldn't update retention setting");
+    } finally {
+      setSavingRetention(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-6xl">
-      <PageHeader title="Reports" description="How detections break down across policies and channels." />
+      <PageHeader
+        title="Reports"
+        description="How detections break down across policies and channels."
+        action={
+          <Button onClick={handleExport} disabled={exporting} size="sm" variant="outline">
+            <Download />
+            {exporting ? "Exporting…" : "Export CSV"}
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
@@ -98,6 +176,38 @@ export default function ReportsPage() {
                   </div>
                 ))}
               </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-sm font-medium">Data retention</CardTitle>
+            <CardDescription>
+              How long incident records are kept before being permanently deleted. Policies, agents, and
+              datasets are never affected - this only ever purges old incident history.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!settings ? (
+              <Skeleton className="h-9 w-48" />
+            ) : (
+              <Select
+                value={settings.incident_retention_days === null ? FOREVER : String(settings.incident_retention_days)}
+                onValueChange={handleRetentionChange}
+                disabled={savingRetention}
+              >
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {RETENTION_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
           </CardContent>
         </Card>

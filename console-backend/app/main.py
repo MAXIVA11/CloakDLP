@@ -1,4 +1,6 @@
+import asyncio
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -9,14 +11,23 @@ from app.bootstrap import ensure_default_password_policy, ensure_default_policy
 from app.config import settings
 from app.database import Base, engine
 from app.migrations import run_migrations
-from app.routers import agents, auth, dashboard, edm, fingerprints, incidents, policies, risk, ws
+from app.retention import run_retention_loop
+from app.routers import agents, app_settings, auth, dashboard, edm, fingerprints, incidents, policies, reports, risk, ws
 
 Base.metadata.create_all(bind=engine)
 run_migrations()
 ensure_default_policy()
 ensure_default_password_policy()
 
-app = FastAPI(title="CloakDLP Console API", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    retention_task = asyncio.create_task(run_retention_loop())
+    yield
+    retention_task.cancel()
+
+
+app = FastAPI(title="CloakDLP Console API", version="0.1.0", lifespan=lifespan)
 
 # Only needed for local dev, where the frontend (npm run dev, port 3000) and backend run as
 # separate origins. The packaged app serves the frontend from the same origin as the API, so it
@@ -41,6 +52,8 @@ app.include_router(edm.router)
 app.include_router(fingerprints.router)
 app.include_router(dashboard.router)
 app.include_router(risk.router)
+app.include_router(reports.router)
+app.include_router(app_settings.router)
 app.include_router(ws.router)
 
 

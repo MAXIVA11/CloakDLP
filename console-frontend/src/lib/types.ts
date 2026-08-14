@@ -112,3 +112,8 @@ export interface FingerprintDataset {
   source_filename: string;
   created_at: string;
 }
+
+export interface AppSettings {
+  // null means incidents are kept forever.
+  incident_retention_days: number | null;
+}

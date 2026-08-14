@@ -169,6 +169,19 @@ class EdmDataset(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=_now)
 
 
+class AppSettings(Base):
+    __tablename__ = "app_settings"
+
+    # Singleton row - a personal, single-user console has exactly one set of settings, not a
+    # table of them. Always fetched/created via retention.get_settings() rather than queried by
+    # id directly, so nothing outside that module needs to know the id is fixed.
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: "default")
+    # None means incidents are kept forever (the default - nothing is ever deleted unless the
+    # user explicitly opts in on the Reports page). Otherwise, incidents older than this many
+    # days are purged by the periodic sweep in retention.py.
+    incident_retention_days: Mapped[int | None] = mapped_column(nullable=True)
+
+
 class FingerprintDataset(Base):
     __tablename__ = "fingerprint_datasets"
 

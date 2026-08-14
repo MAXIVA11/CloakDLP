@@ -1,6 +1,7 @@
 import type {
   Agent,
   AgentKind,
+  AppSettings,
   CurrentUser,
   DashboardStats,
   EdmDataset,
@@ -234,4 +235,36 @@ export async function getDashboardStats(token: string): Promise<DashboardStats> 
 export function incidentsWebSocketUrl(token: string): string {
   const wsBase = API_URL.replace(/^http/, "ws");
   return `${wsBase}/ws/incidents?token=${encodeURIComponent(token)}`;
+}
+
+export async function getSettings(token: string): Promise<AppSettings> {
+  const res = await fetch(`${API_URL}/api/settings`, { headers: authHeaders(token) });
+  return handle<AppSettings>(res);
+}
+
+export async function updateSettings(token: string, input: AppSettings): Promise<AppSettings> {
+  const res = await fetch(`${API_URL}/api/settings`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders(token) },
+    body: JSON.stringify(input),
+  });
+  return handle<AppSettings>(res);
+}
+
+// Returns a Blob rather than a URL: the export endpoint requires the same bearer auth as every
+// other API call, so a plain <a href> download link (which sends no Authorization header) can't
+// reach it - the caller downloads the blob itself (see downloadBlob in reports/page.tsx).
+export async function exportIncidentsCsv(
+  token: string,
+  params?: { channel?: string; status?: string },
+): Promise<Blob> {
+  const query = new URLSearchParams();
+  if (params?.channel) query.set("channel", params.channel);
+  if (params?.status) query.set("status", params.status);
+  const qs = query.toString();
+  const res = await fetch(`${API_URL}/api/reports/incidents.csv${qs ? `?${qs}` : ""}`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw new ApiError(res.status, res.statusText);
+  return res.blob();
 }

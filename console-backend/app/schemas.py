@@ -230,6 +230,17 @@ class DashboardStats(BaseModel):
     channel_breakdown: list[ChannelBreakdown]
 
 
+# --- Settings ---
+
+class AppSettingsOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    incident_retention_days: int | None
+
+
+class AppSettingsUpdate(BaseModel):
+    incident_retention_days: int | None
+
+
 # --- Site risk ---
 
 class RiskCheckOut(BaseModel):
