@@ -19,8 +19,11 @@ router = APIRouter(prefix="/api/incidents", tags=["incidents"])
 # authoritative block decision, since the policy backing it can change between the two). Without
 # this window, both calls insert their own row, so one real attempt shows up as two-plus
 # incidents in the log. Anything landing within this many seconds of an existing open incident
-# for the same agent/rule/redacted value is treated as the same attempt and merges into it
-# instead of stacking a new row.
+# for the same agent/channel/rule/redacted value is treated as the same attempt and merges into
+# it instead of stacking a new row. Channel is part of the key deliberately: a clipboard copy and
+# a file scan happening close together are two different real events even if the card number
+# (and thus redacted value) happens to be the same one - only a repeat within the *same* channel
+# is the "typing then submitting" case this exists to collapse.
 DEDUP_WINDOW_SECONDS = 30
 
 
@@ -141,6 +144,7 @@ async def create_incident(
         db.query(Incident)
         .filter(
             Incident.agent_id == agent.id,
+            Incident.channel == payload.channel,
             Incident.rule_id == payload.rule_id,
             Incident.redacted_snippet == payload.redacted_snippet,
             Incident.status == IncidentStatus.open,
