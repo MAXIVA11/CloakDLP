@@ -144,11 +144,17 @@ jobs:
       - name: Smoke test uninstall removes ProgramData
         shell: pwsh
         run: |
-          $found = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" |
-            Where-Object { $_.DisplayName -like "*CloakDLP*" }
-          if (-not $found) { throw "CloakDLP not found in Add/Remove Programs before uninstall" }
+          # Wrapped in @() so $found.Count is always valid (0, 1, or N) rather than the ambiguous
+          # $null-vs-single-object-vs-array shapes Get-ItemProperty/Where-Object can return.
+          $found = @(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" |
+            Where-Object { $_.DisplayName -like "*CloakDLP*" })
+          if ($found.Count -eq 0) { throw "CloakDLP not found in Add/Remove Programs before uninstall" }
+          if ($found.Count -gt 1) {
+            Write-Host "Found $($found.Count) matching Add/Remove Programs entries after upgrade (expected 1):"
+            $found | ForEach-Object { Write-Host "  $($_.PSChildName): $($_.DisplayName) $($_.DisplayVersion)" }
+          }
 
-          $proc = Start-Process msiexec.exe -ArgumentList "/x", $found.PSChildName, "/qn", "/l*v", "uninstall.log" -Wait -PassThru
+          $proc = Start-Process msiexec.exe -ArgumentList "/x", $found[0].PSChildName, "/qn", "/l*v", "uninstall.log" -Wait -PassThru
           if ($proc.ExitCode -ne 0) {
             Get-Content uninstall.log -Tail 60
             throw "Uninstall failed with exit code $($proc.ExitCode)"
