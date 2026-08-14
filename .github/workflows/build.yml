@@ -24,6 +24,14 @@ jobs:
         with:
           node-version: "24"
 
+      # No build step or dependencies for the extension itself (see browser-extension/README.md);
+      # this only runs background.test.js's regression coverage for the two stale-pairing 401
+      # recovery bugs (heartbeat, checkSiteRisk) that shipped and went live before being caught by
+      # manual testing. Runs before the slow build steps so a regression here fails fast.
+      - name: Browser extension regression tests
+        working-directory: browser-extension
+        run: node --test
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
@@ -66,11 +74,11 @@ jobs:
 
       # windows-latest runners execute as a user already in Administrators, so msiexec /qn here
       # doesn't hit a UAC consent prompt the way an interactive desktop install would - there's
-      # no interactive session for Windows to ask consent on. This only proves the MSI installs,
-      # registers both services, and uninstalls cleanly; it can't exercise anything that needs a
-      # real interactive session (clipboard access, the tray icon, a live UAC-elevated install)
-      # the way manual testing on a real desktop does.
-      - name: Smoke test install and uninstall
+      # no interactive session for Windows to ask consent on. This can't exercise anything that
+      # needs a real interactive session (clipboard access, the tray icon, a live UAC-elevated
+      # install) the way manual testing on a real desktop does, but it can and does exercise a
+      # real MajorUpgrade sequence, which is what the next step relies on.
+      - name: Smoke test install
         shell: pwsh
         run: |
           $proc = Start-Process msiexec.exe -ArgumentList "/i", "installer\out\CloakDLP-Setup.msi", "/qn", "/l*v", "install.log" -Wait -PassThru
@@ -90,12 +98,67 @@ jobs:
             Where-Object { $_.DisplayName -like "*CloakDLP*" }
           if (-not $found) { throw "CloakDLP not found in Add/Remove Programs after install" }
 
-          $proc2 = Start-Process msiexec.exe -ArgumentList "/x", $found.PSChildName, "/qn", "/l*v", "uninstall.log" -Wait -PassThru
-          if ($proc2.ExitCode -ne 0) {
+      # Regression test for the ProgramData-wipe-on-upgrade bug: RemoveProgramDataFolder used to
+      # fire on REMOVE="ALL" alone, which is also true during a MajorUpgrade's automatic removal
+      # of the old product - so every upgrade silently deleted the database, JWT secret, and agent
+      # credentials before the new version even installed. The fix excludes UPGRADINGPRODUCTCODE.
+      # This seeds a marker file, builds a second MSI with a fresh ProductCode (WiX mints a new
+      # one on every `wix build` since Package Id isn't pinned - reusing the already-assembled
+      # staging directory is cheap, no need to redo the npm/PyInstaller/dotnet steps), installs it
+      # over the first (a genuine MajorUpgrade), and confirms the marker survived.
+      - name: Smoke test upgrade preserves ProgramData
+        shell: pwsh
+        working-directory: installer
+        run: |
+          $markerPath = "C:\ProgramData\CloakDLP\regression-marker.txt"
+          $markerContent = "upgrade-should-preserve-this-$(Get-Random)"
+          Set-Content -Path $markerPath -Value $markerContent
+          if (-not (Test-Path $markerPath)) { throw "Failed to seed marker file before upgrade" }
+
+          wix build CloakDLP.wxs -arch x64 `
+            -ext WixToolset.UI.wixext/5.0.2 -ext WixToolset.Util.wixext/5.0.2 `
+            -out out\CloakDLP-Setup-upgrade.msi
+
+          $proc = Start-Process msiexec.exe -ArgumentList "/i", "out\CloakDLP-Setup-upgrade.msi", "/qn", "/l*v", "..\upgrade.log" -Wait -PassThru
+          if ($proc.ExitCode -ne 0) {
+            Get-Content ..\upgrade.log -Tail 60
+            throw "Upgrade install failed with exit code $($proc.ExitCode)"
+          }
+
+          Start-Sleep -Seconds 5
+          if (-not (Test-Path $markerPath)) {
+            throw "REGRESSION: ProgramData was wiped during upgrade - RemoveProgramDataFolder fired when it shouldn't have"
+          }
+          if ((Get-Content $markerPath -Raw).Trim() -ne $markerContent) {
+            throw "REGRESSION: marker file exists but its content changed unexpectedly during upgrade"
+          }
+          Write-Host "Upgrade correctly preserved ProgramData (marker file survived)."
+
+          $services = Get-Service -Name CloakDLPConsole, CloakDLPAgent -ErrorAction Stop
+          foreach ($svc in $services) {
+            if ($svc.Status -ne "Running") { throw "$($svc.Name) is not running after upgrade: $($svc.Status)" }
+          }
+
+      # The other half of the same regression: confirm the fix didn't accidentally break real
+      # cleanup - a genuine uninstall must still remove ProgramData, not just skip the upgrade case.
+      - name: Smoke test uninstall removes ProgramData
+        shell: pwsh
+        run: |
+          $found = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" |
+            Where-Object { $_.DisplayName -like "*CloakDLP*" }
+          if (-not $found) { throw "CloakDLP not found in Add/Remove Programs before uninstall" }
+
+          $proc = Start-Process msiexec.exe -ArgumentList "/x", $found.PSChildName, "/qn", "/l*v", "uninstall.log" -Wait -PassThru
+          if ($proc.ExitCode -ne 0) {
             Get-Content uninstall.log -Tail 60
-            throw "Uninstall failed with exit code $($proc2.ExitCode)"
+            throw "Uninstall failed with exit code $($proc.ExitCode)"
           }
           Write-Host "Uninstall completed cleanly."
+
+          if (Test-Path "C:\ProgramData\CloakDLP") {
+            throw "REGRESSION: ProgramData was NOT removed on a genuine uninstall - cleanup is broken"
+          }
+          Write-Host "Uninstall correctly removed ProgramData."
 
       - uses: actions/upload-artifact@v4
         with:

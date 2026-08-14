@@ -1,0 +1,8 @@
+{
+  "name": "cloakdlp-browser-extension",
+  "private": true,
+  "description": "No build step for the extension itself - see README.md. This file only wires up `npm test` for background.test.js.",
+  "scripts": {
+    "test": "node --test"
+  }
+}

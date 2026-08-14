@@ -299,3 +299,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 });
+
+// Exposed for the Node-based regression tests (background.test.js) only. `module` is undefined
+// in the real browser service worker context, so this never runs there.
+if (typeof module !== "undefined") {
+  module.exports = { heartbeat, checkSiteRisk, getCredentials, selfRegister };
+}
