@@ -268,3 +268,18 @@ export async function exportIncidentsCsv(
   if (!res.ok) throw new ApiError(res.status, res.statusText);
   return res.blob();
 }
+
+export async function exportIncidentsPdf(
+  token: string,
+  params?: { channel?: string; status?: string },
+): Promise<Blob> {
+  const query = new URLSearchParams();
+  if (params?.channel) query.set("channel", params.channel);
+  if (params?.status) query.set("status", params.status);
+  const qs = query.toString();
+  const res = await fetch(`${API_URL}/api/reports/incidents.pdf${qs ? `?${qs}` : ""}`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw new ApiError(res.status, res.statusText);
+  return res.blob();
+}

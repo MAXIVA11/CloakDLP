@@ -49,6 +49,8 @@ Remove-Item -Recurse -Force build, dist -ErrorAction SilentlyContinue
     --icon "$installerDir\cloakdlp.ico" `
     --hidden-import passlib.handlers.bcrypt `
     --collect-data whois `
+    --collect-data reportlab `
+    --add-data "app\assets\logo.png;assets" `
     run_server.py
 Pop-Location
 & "$PSScriptRoot\sign.ps1" -FilePath "$root\console-backend\dist\CloakDLP-Console.exe"

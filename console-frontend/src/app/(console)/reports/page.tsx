@@ -1,6 +1,6 @@
 "use client";
 
-import { Download } from "lucide-react";
+import { Download, FileSpreadsheet, FileText } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -8,11 +8,18 @@ import { ChannelBreakdown } from "@/components/channel-breakdown";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ApiError,
   exportIncidentsCsv,
+  exportIncidentsPdf,
   getDashboardStats,
   getSettings,
   listIncidents,
@@ -40,7 +47,7 @@ export default function ReportsPage() {
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [savingRetention, setSavingRetention] = useState(false);
-  const [exporting, setExporting] = useState(false);
+  const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -70,25 +77,28 @@ export default function ReportsPage() {
     );
   }, [incidents]);
 
-  const handleExport = useCallback(async () => {
-    if (!token) return;
-    setExporting(true);
-    try {
-      const blob = await exportIncidentsCsv(token);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `cloakdlp-incidents-${new Date().toISOString().slice(0, 10)}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Couldn't export incidents");
-    } finally {
-      setExporting(false);
-    }
-  }, [token]);
+  const handleExport = useCallback(
+    async (format: "csv" | "pdf") => {
+      if (!token) return;
+      setExporting(format);
+      try {
+        const blob = format === "csv" ? await exportIncidentsCsv(token) : await exportIncidentsPdf(token);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `cloakdlp-incidents-${new Date().toISOString().slice(0, 10)}.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        toast.error(err instanceof ApiError ? err.message : "Couldn't export incidents");
+      } finally {
+        setExporting(null);
+      }
+    },
+    [token],
+  );
 
   async function handleRetentionChange(value: string) {
     if (!token) return;
@@ -118,10 +128,24 @@ export default function ReportsPage() {
         title="Reports"
         description="How detections break down across policies and channels."
         action={
-          <Button onClick={handleExport} disabled={exporting} size="sm" variant="outline">
-            <Download />
-            {exporting ? "Exporting…" : "Export CSV"}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button disabled={exporting !== null} size="sm" variant="outline">
+                <Download />
+                {exporting ? "Exporting…" : "Export"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleExport("csv")}>
+                <FileSpreadsheet />
+                Export as CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport("pdf")}>
+                <FileText />
+                Export as PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         }
       />
 
