@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
+  // The on-screen route indicator `next dev` overlays in a corner of the page - dev-only
+  // chrome, never present in the static export this actually ships as, but distracting during
+  // design review.
+  devIndicators: false,
 };
 
 export default nextConfig;

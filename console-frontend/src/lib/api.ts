@@ -42,32 +42,10 @@ async function handle<T>(res: Response): Promise<T> {
   return res.json();
 }
 
-export async function login(email: string, password: string): Promise<string> {
-  const form = new URLSearchParams();
-  form.set("username", email);
-  form.set("password", password);
-  const res = await fetch(`${API_URL}/api/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: form.toString(),
-  });
-  const data = await handle<{ access_token: string }>(res);
-  return data.access_token;
-}
-
 export async function localLogin(): Promise<string> {
   const res = await fetch(`${API_URL}/api/auth/local-login`, { method: "POST" });
   const data = await handle<{ access_token: string }>(res);
   return data.access_token;
-}
-
-export async function register(email: string, password: string): Promise<CurrentUser> {
-  const res = await fetch(`${API_URL}/api/auth/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-  return handle<CurrentUser>(res);
 }
 
 export async function getCurrentUser(token: string): Promise<CurrentUser> {

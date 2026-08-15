@@ -65,7 +65,7 @@ export default function ReportsPage() {
       counts.set(incident.policy_id, (counts.get(incident.policy_id) ?? 0) + 1);
     }
     return Array.from(counts.entries())
-      .map(([policyId, count]) => ({ name: policyNames.get(policyId) ?? "Unknown policy", count }))
+      .map(([policyId, count]) => ({ policyId, name: policyNames.get(policyId) ?? "Unknown policy", count }))
       .sort((a, b) => b.count - a.count);
   }, [incidents, policies]);
 
@@ -123,7 +123,7 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-7xl">
       <PageHeader
         title="Reports"
         description="How detections break down across policies and channels."
@@ -194,7 +194,7 @@ export default function ReportsPage() {
             ) : (
               <div className="flex flex-col gap-2">
                 {byPolicy.map((p) => (
-                  <div key={p.name} className="flex items-center justify-between border-b py-1.5 text-sm last:border-0">
+                  <div key={p.policyId} className="flex items-center justify-between border-b py-1.5 text-sm last:border-0">
                     <span>{p.name}</span>
                     <span className="font-mono tabular-nums text-muted-foreground">{p.count}</span>
                   </div>

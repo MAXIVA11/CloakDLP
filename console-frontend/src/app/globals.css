@@ -7,9 +7,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-geist-sans);
+  --font-sans: var(--font-plex-sans);
+  --font-mono: var(--font-plex-mono);
+  --font-heading: var(--font-plex-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -45,6 +45,17 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
+  /* Bumped a step up from Tailwind's defaults - the shadcn primitives lean heavily on text-xs/sm
+     for their default sizing, which reads small across a dense console like this one. Paired
+     --text-*--line-height variables are unitless ratios (e.g. calc(1.25 / 0.875)), so they scale
+     proportionally with these without needing their own overrides. */
+  --text-xs: 0.8125rem;
+  --text-sm: 0.9375rem;
+  --text-base: 1.0625rem;
+  --text-lg: 1.1875rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.625rem;
+
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -84,15 +95,19 @@
   --chart-3: #4a6fd1;
   --chart-4: #d8383f;
   --chart-5: #5b6472;
-  --radius: 0.5rem;
-  --sidebar: #ffffff;
-  --sidebar-foreground: #12151a;
-  --sidebar-primary: #1e9c90;
+  --radius: 0.625rem;
+  /* The sidebar is a fixed navy rail - deliberately not one of the tokens that changes with
+     .dark below, the same way SentinelOne/Datadog/most enterprise consoles keep their brand
+     chrome constant while the workspace itself adapts to theme. Navy pulled directly from the
+     logo (the hood/shield color), not chosen arbitrarily. */
+  --sidebar: #10304f;
+  --sidebar-foreground: #c9d6e4;
+  --sidebar-primary: #35b8ac;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f0f2f5;
-  --sidebar-accent-foreground: #12151a;
-  --sidebar-border: #e7e9ed;
-  --sidebar-ring: #1e9c90;
+  --sidebar-accent: #1c4670;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #0a2038;
+  --sidebar-ring: #35b8ac;
 }
 
 .dark {
@@ -125,13 +140,14 @@
   --chart-3: #6c90e8;
   --chart-4: #f0555c;
   --chart-5: #8992a0;
-  --sidebar: #0d1013;
-  --sidebar-foreground: #e6e9ee;
+  /* Same fixed navy rail as light mode - see the :root comment above. */
+  --sidebar: #10304f;
+  --sidebar-foreground: #c9d6e4;
   --sidebar-primary: #35b8ac;
-  --sidebar-primary-foreground: #05201d;
-  --sidebar-accent: #161a20;
-  --sidebar-accent-foreground: #e6e9ee;
-  --sidebar-border: #20242b;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1c4670;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #0a2038;
   --sidebar-ring: #35b8ac;
 }
 
@@ -148,6 +164,32 @@
 }
 
 @layer utilities {
+  /* The Sidebar primitive (ui/sidebar.tsx) sets its background-color on an inner wrapper this
+     app doesn't otherwise touch; layering a gradient image on top keeps the fixed navy rail
+     from reading as a single flat color without needing to fork the vendored component. */
+  [data-slot="sidebar-inner"] {
+    position: relative;
+    isolation: isolate;
+    background-image: linear-gradient(180deg, var(--sidebar) 0%, var(--sidebar-border) 100%);
+    box-shadow:
+      4px 0 24px rgba(8, 32, 56, 0.25),
+      inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  }
+
+  /* A faint grain keeps the navy gradient from reading as a flat, printed-looking fill - the
+     same texture trick Linear/Arc/Raycast use on dark surfaces to make them feel like a real
+     material instead of a solid color. */
+  [data-slot="sidebar-inner"]::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.05;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+
   /* Redaction-bar motif: the one visual signature carried through incident
      snippets, loading skeletons, and empty states. Solid blocks stand in for
      masked content the console never actually receives. */

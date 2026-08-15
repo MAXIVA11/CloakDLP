@@ -92,7 +92,7 @@ export default function AgentsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-7xl">
       <PageHeader
         title="Agents"
         description="What's protecting this workstation, and whether it's actually running."

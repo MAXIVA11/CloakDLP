@@ -1,8 +1,8 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-import { getCurrentUser, localLogin, login as apiLogin, register as apiRegister } from "@/lib/api";
+import { getCurrentUser, localLogin } from "@/lib/api";
 import type { CurrentUser } from "@/lib/types";
 
 const TOKEN_KEY = "cloakdlp_token";
@@ -11,9 +11,6 @@ interface AuthState {
   token: string | null;
   user: CurrentUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
-  logout: () => void;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -40,10 +37,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     tryLocalLogin().finally(() => setLoading(false));
 
-    // Zero-config sign-in: if this console is being opened on the same machine it's running
-    // on (the normal case; Start Menu shortcut, agent-adjacent tray app), the backend trusts
-    // the loopback connection and logs us straight in. Opened from another machine on the LAN,
-    // this 403s and the regular login form shows instead; nothing breaks, it just falls back.
+    // Zero-config sign-in: the console is a personal, single-user tool, so opening it on the
+    // machine it's running on (Start Menu shortcut, agent-adjacent tray app) is the only sign-in
+    // flow there is. The backend trusts the loopback connection and logs us straight in.
     async function tryLocalLogin() {
       try {
         const accessToken = await localLogin();
@@ -52,38 +48,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setToken(accessToken);
         setUser(u);
       } catch {
-        // not reachable via loopback (or some other failure); fall through to manual login
+        // not reachable via loopback (or some other failure); user/token stay null
       }
     }
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const accessToken = await apiLogin(email, password);
-    const u = await getCurrentUser(accessToken);
-    window.localStorage.setItem(TOKEN_KEY, accessToken);
-    setToken(accessToken);
-    setUser(u);
-  }, []);
-
-  const register = useCallback(async (email: string, password: string) => {
-    await apiRegister(email, password);
-    const accessToken = await apiLogin(email, password);
-    const u = await getCurrentUser(accessToken);
-    window.localStorage.setItem(TOKEN_KEY, accessToken);
-    setToken(accessToken);
-    setUser(u);
-  }, []);
-
-  const logout = useCallback(() => {
-    window.localStorage.removeItem(TOKEN_KEY);
-    setToken(null);
-    setUser(null);
-  }, []);
-
-  const value = useMemo(
-    () => ({ token, user, loading, login, register, logout }),
-    [token, user, loading, login, register, logout],
-  );
+  const value = useMemo(() => ({ token, user, loading }), [token, user, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

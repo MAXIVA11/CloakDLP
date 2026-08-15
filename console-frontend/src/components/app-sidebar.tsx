@@ -3,7 +3,6 @@
 import {
   Fingerprint,
   LayoutDashboard,
-  LogOut,
   ScrollText,
   Server,
   ShieldAlert,
@@ -26,68 +25,86 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { useAuth } from "@/lib/auth-context";
 
-const navItems = [
-  { href: "/", label: "Overview", icon: LayoutDashboard },
-  { href: "/policies", label: "Policies", icon: ShieldCheck },
-  { href: "/incidents", label: "Incidents", icon: ShieldAlert },
-  { href: "/fingerprints", label: "Fingerprints", icon: Fingerprint },
-  { href: "/agents", label: "Agents", icon: Server },
-  { href: "/reports", label: "Reports", icon: ScrollText },
+const navGroups = [
+  {
+    label: "Monitor",
+    items: [
+      { href: "/", label: "Overview", icon: LayoutDashboard },
+      { href: "/incidents", label: "Incidents", icon: ShieldAlert },
+    ],
+  },
+  {
+    label: "Protect",
+    items: [
+      { href: "/policies", label: "Policies", icon: ShieldCheck },
+      { href: "/fingerprints", label: "Fingerprints", icon: Fingerprint },
+      { href: "/agents", label: "Agents", icon: Server },
+    ],
+  },
+  {
+    label: "Reports",
+    items: [{ href: "/reports", label: "Reports", icon: ScrollText }],
+  },
 ];
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
 
   return (
     <Sidebar>
-      <SidebarHeader className="px-3 py-4">
-        <div className="flex items-center gap-2 px-1">
-          <Image src="/logo.png" alt="" width={26} height={26} className="shrink-0" priority />
-          <span className="font-mono text-sm font-semibold tracking-tight">CloakDLP</span>
+      <SidebarHeader className="px-3 pt-4 pb-3">
+        <div className="flex items-center gap-2.5 px-1">
+          <div className="relative shrink-0">
+            <Image src="/logo.png" alt="" width={28} height={28} className="rounded-md" priority />
+            <span className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full bg-success ring-2 ring-sidebar" />
+          </div>
+          <div className="flex min-w-0 flex-col">
+            <span className="truncate text-sm font-semibold tracking-tight text-white">CloakDLP</span>
+            <span className="text-[10px] font-medium tracking-wide text-success/90 uppercase">Protected</span>
+          </div>
         </div>
       </SidebarHeader>
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Console</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {navItems.map((item) => {
-                const active = pathname === item.href;
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton asChild isActive={active} tooltip={item.label}>
-                      <Link href={item.href}>
-                        <item.icon />
-                        <span>{item.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+
+      <div className="mx-3 border-t border-white/10" />
+
+      <SidebarContent className="pt-2">
+        {navGroups.map((group) => (
+          <SidebarGroup key={group.label}>
+            <SidebarGroupLabel className="text-sidebar-foreground/45">{group.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item) => {
+                  const active = pathname === item.href;
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={active}
+                        tooltip={item.label}
+                        className="rounded-lg text-sidebar-foreground/85 transition-all duration-150 data-active:bg-primary/15 data-active:font-medium data-active:text-white data-active:shadow-[inset_0_0_0_1px_rgba(53,184,172,0.35),0_2px_14px_-4px_rgba(53,184,172,0.5)]"
+                      >
+                        <Link href={item.href}>
+                          <item.icon />
+                          <span>{item.label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
-      <SidebarFooter className="gap-2 px-3 pb-4">
-        <div className="flex items-center justify-between rounded-md border border-sidebar-border px-2.5 py-2">
-          <div className="flex min-w-0 flex-col">
-            <span className="truncate text-xs font-medium">{user?.email}</span>
-            <span className="text-[11px] text-muted-foreground">Signed in</span>
-          </div>
-          <div className="flex items-center">
+
+      <SidebarFooter className="gap-0 px-3 pb-3">
+        <div className="mb-1 border-t border-white/10" />
+        <SidebarMenu>
+          <SidebarMenuItem>
             <ThemeToggle />
-            <SidebarMenuButton
-              onClick={logout}
-              tooltip="Sign out"
-              className="size-8 shrink-0 justify-center p-0"
-            >
-              <LogOut />
-            </SidebarMenuButton>
-          </div>
-        </div>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
   );

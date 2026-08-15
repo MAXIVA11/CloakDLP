@@ -62,7 +62,7 @@ export default function FingerprintsPage() {
   const fpEmpty = fingerprints !== null && fingerprints.length === 0;
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-7xl">
       <PageHeader
         title="Fingerprints"
         description="Exact data match datasets and document fingerprints used for detection."

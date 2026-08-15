@@ -76,7 +76,7 @@ export default function PoliciesPage() {
   const isEmpty = policies !== null && policies.length === 0;
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-7xl">
       <PageHeader
         title="Policies"
         description="Rules that decide what gets detected, where, and what happens next."

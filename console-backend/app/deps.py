@@ -6,7 +6,7 @@ from app.database import get_db
 from app.models import Agent, User
 from app.security import decode_access_token, verify_api_key
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/local-login")
 
 LOOPBACK_HOSTS = {"127.0.0.1", "::1"}
 

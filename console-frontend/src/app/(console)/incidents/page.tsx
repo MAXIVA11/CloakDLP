@@ -94,7 +94,7 @@ export default function IncidentsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-7xl">
       <PageHeader
         title="Incidents"
         description="Live feed of policy matches reported by agents across every channel."

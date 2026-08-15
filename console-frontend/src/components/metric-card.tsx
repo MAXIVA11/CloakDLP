@@ -14,23 +14,23 @@ export function MetricCard({
   icon: LucideIcon;
   tone?: "default" | "danger" | "warning" | "info";
 }) {
-  const toneClass = {
-    default: "text-primary bg-primary/10",
-    danger: "text-destructive bg-destructive/10",
-    warning: "text-warning bg-warning/10",
-    info: "text-info bg-info/10",
+  const chipClass = {
+    default: "bg-muted text-muted-foreground",
+    danger: "bg-destructive/12 text-destructive",
+    warning: "bg-warning/12 text-warning",
+    info: "bg-primary/12 text-primary",
   }[tone];
 
   return (
-    <Card className="gap-3 py-5">
-      <CardContent className="flex items-center justify-between px-5">
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-muted-foreground">{label}</span>
-          <span className="font-mono text-2xl font-semibold tabular-nums">{value}</span>
-        </div>
-        <div className={cn("flex size-9 shrink-0 items-center justify-center rounded-md", toneClass)}>
-          <Icon className="size-4.5" />
-        </div>
+    <Card className="gap-3 py-4 transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-md">
+      <CardContent className="flex flex-col gap-3 px-5">
+        <span className="flex items-center gap-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          <span className={cn("flex size-6 shrink-0 items-center justify-center rounded-md", chipClass)}>
+            <Icon className="size-3.5" />
+          </span>
+          {label}
+        </span>
+        <span className="font-mono text-2xl font-medium tabular-nums text-foreground">{value}</span>
       </CardContent>
     </Card>
   );
